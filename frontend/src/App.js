@@ -74,3 +74,101 @@ const fallbackResults = {
     }
   ]
 };
+
+function App() {
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [results, setResults] = useState(null);
+  const [error, setError] = useState('');
+  const [detailedError, setDetailedError] = useState(null);
+  const [apiStatus, setApiStatus] = useState({ checking: false, vision: null, search: null });
+  const [tips, setTips] = useState([]);
+  const [logs, setLogs] = useState([]);
+  const fileInputRef = useRef(null);
+  const logsEndRef = useRef(null);
+  const [useFallback, setUseFallback] = useState(false);
+  const [showLogs, setShowLogs] = useState(true);
+
+  // Fonction pour ajouter des logs
+  const addLog = (message, type = 'info') => {
+    const logEntry = {
+      id: Date.now(),
+      timestamp: new Date().toLocaleTimeString(),
+      message,
+      type // info, success, error, warning
+    };
+    setLogs(prevLogs => [...prevLogs, logEntry]);
+  };
+
+  // Fonction pour effacer les logs
+  const clearLogs = () => {
+    setLogs([]);
+  };
+
+  // Scroll vers le bas des logs quand ils sont mis à jour
+  useEffect(() => {
+    if (logsEndRef.current) {
+      logsEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [logs]);
+
+  // Vérifier l'état des APIs au chargement
+  useEffect(() => {
+    addLog('Application démarrée');
+    checkApiStatus();
+    
+    // Conseils pour l'utilisateur
+    const allTips = [
+      "Choisissez une image où le vêtement est bien visible et occupe la majorité de l'image.",
+      "Les photos avec un fond simple fonctionnent mieux pour l'analyse.",
+      "Évitez les images avec plusieurs vêtements ou personnes pour de meilleurs résultats.",
+      "Les images bien éclairées et nettes donnent de meilleurs résultats.",
+      "Si vous rencontrez des erreurs, activez le mode démonstration pour voir comment l'application devrait fonctionner."
+    ];
+    
+    // Sélectionner 3 conseils aléatoires
+    const selectedTips = [];
+    for (let i = 0; i < 3; i++) {
+      const randomIndex = Math.floor(Math.random() * allTips.length);
+      selectedTips.push(allTips[randomIndex]);
+      allTips.splice(randomIndex, 1);
+    }
+    
+    setTips(selectedTips);
+  }, []);
+
+  const checkApiStatus = async () => {
+    setApiStatus(prev => ({ ...prev, checking: true }));
+    addLog('Vérification de la connexion au serveur...', 'info');
+    
+    try {
+      const response = await fetch('http://localhost:5000/api/test');
+      
+      if (response.ok) {
+        addLog('Serveur backend connecté avec succès', 'success');
+        setApiStatus({
+          checking: false,
+          vision: { available: true, message: 'API Google Vision disponible' },
+          search: { available: true, message: 'API Google Custom Search disponible' }
+        });
+      } else {
+        addLog('Impossible de se connecter au serveur - Erreur ' + response.status, 'error');
+        setUseFallback(true);
+        setApiStatus({
+          checking: false,
+          vision: { available: false, message: 'Serveur indisponible' },
+          search: { available: false, message: 'Serveur indisponible' }
+        });
+      }
+    } catch (error) {
+      console.error('Erreur lors de la vérification des APIs:', error);
+      addLog('Erreur de connexion: ' + error.message, 'error');
+      setUseFallback(true);
+      setApiStatus({
+        checking: false,
+        vision: { available: false, message: 'Serveur indisponible' },
+        search: { available: false, message: 'Serveur indisponible' }
+      });
+    }
+  };
