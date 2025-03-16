@@ -1,5 +1,5 @@
-import React, { useState, useRef } from 'react';
-import { FaUpload, FaSearch, FaShoppingBag, FaTag } from 'react-icons/fa';
+import React, { useState, useRef, useEffect } from 'react';
+import { FaUpload, FaSearch, FaShoppingBag, FaTag, FaCheck, FaExclamationTriangle, FaInfoCircle } from 'react-icons/fa';
 import { RiShirtLine } from 'react-icons/ri';
 import { BiLoaderAlt } from 'react-icons/bi';
 import './App.css';
@@ -10,7 +10,62 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState(null);
   const [error, setError] = useState('');
+  const [apiStatus, setApiStatus] = useState({ checking: false, vision: null, search: null });
+  const [tips, setTips] = useState([]);
   const fileInputRef = useRef(null);
+
+  // Vérifier l'état des APIs au chargement
+  useEffect(() => {
+    checkApiStatus();
+    
+    // Conseils pour l'utilisateur
+    const allTips = [
+      "Choisissez une image où le vêtement est bien visible et occupe la majorité de l'image.",
+      "Les photos avec un fond simple fonctionnent mieux pour l'analyse.",
+      "Évitez les images avec plusieurs vêtements ou personnes pour de meilleurs résultats.",
+      "Les images bien éclairées et nettes donnent de meilleurs résultats.",
+      "Si vous ne voyez pas de résultats, essayez une autre image ou une autre catégorie de vêtement."
+    ];
+    
+    // Sélectionner 3 conseils aléatoires
+    const selectedTips = [];
+    for (let i = 0; i < 3; i++) {
+      const randomIndex = Math.floor(Math.random() * allTips.length);
+      selectedTips.push(allTips[randomIndex]);
+      allTips.splice(randomIndex, 1);
+    }
+    
+    setTips(selectedTips);
+  }, []);
+
+  const checkApiStatus = async () => {
+    setApiStatus(prev => ({ ...prev, checking: true }));
+    try {
+      const response = await fetch('http://localhost:5000/api/check-apis');
+      if (response.ok) {
+        const data = await response.json();
+        setApiStatus({
+          checking: false,
+          vision: data.vision,
+          search: data.search
+        });
+      } else {
+        const errorData = await response.json();
+        setApiStatus({
+          checking: false,
+          vision: errorData.vision || { available: false, message: 'Impossible de vérifier l\'API Vision' },
+          search: errorData.search || { available: false, message: 'Impossible de vérifier l\'API Search' }
+        });
+      }
+    } catch (error) {
+      console.error('Erreur lors de la vérification des APIs:', error);
+      setApiStatus({
+        checking: false,
+        vision: { available: false, message: 'Serveur indisponible' },
+        search: { available: false, message: 'Serveur indisponible' }
+      });
+    }
+  };
 
   const handleFileChange = (event) => {
     const file = event.target.files[0];
@@ -61,15 +116,22 @@ function App() {
         body: formData,
       });
 
-      if (!response.ok) {
-        throw new Error(`Erreur HTTP! statut: ${response.status}`);
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.details || data.error || `Erreur HTTP! statut: ${response.status}`);
       }
 
-      const data = await response.json();
       setResults(data);
     } catch (error) {
       console.error('Erreur lors de l\'analyse:', error);
-      setError('Une erreur est survenue lors de l\'analyse. Veuillez réessayer.');
+      setError(`${error.message || 'Une erreur est survenue lors de l\'analyse.'}
+      
+Conseils de dépannage:
+- Vérifiez que l'image est de bonne qualité et clairement visible
+- Assurez-vous que le vêtement est au premier plan
+- Vérifiez votre connexion internet
+- Réessayez avec une autre image`);
     } finally {
       setLoading(false);
     }
@@ -88,6 +150,61 @@ function App() {
       </header>
 
       <main className="container mx-auto py-8 px-4 sm:px-6 lg:px-8">
+        {/* Indicateur d'état des APIs */}
+        <div className="mb-6 bg-white p-4 rounded-lg shadow-md">
+          <h2 className="text-lg font-semibold mb-2 flex items-center">
+            <FaInfoCircle className="mr-2 text-blue-500" />
+            État du système
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="flex items-center">
+              <div className={`w-3 h-3 rounded-full mr-2 ${apiStatus.vision?.available ? 'bg-green-500' : 'bg-red-500'}`}></div>
+              <span className="mr-2 font-medium">API Vision:</span>
+              {apiStatus.checking ? (
+                <BiLoaderAlt className="animate-spin text-blue-600" />
+              ) : apiStatus.vision?.available ? (
+                <span className="text-green-600">Disponible</span>
+              ) : (
+                <span className="text-red-600">Indisponible</span>
+              )}
+            </div>
+            <div className="flex items-center">
+              <div className={`w-3 h-3 rounded-full mr-2 ${apiStatus.search?.available ? 'bg-green-500' : 'bg-red-500'}`}></div>
+              <span className="mr-2 font-medium">API Recherche:</span>
+              {apiStatus.checking ? (
+                <BiLoaderAlt className="animate-spin text-blue-600" />
+              ) : apiStatus.search?.available ? (
+                <span className="text-green-600">Disponible</span>
+              ) : (
+                <span className="text-red-600">Indisponible</span>
+              )}
+            </div>
+          </div>
+          {(!apiStatus.vision?.available || !apiStatus.search?.available) && (
+            <div className="mt-3 text-sm bg-yellow-50 p-3 rounded border border-yellow-200 text-yellow-800">
+              <FaExclamationTriangle className="inline-block mr-1" /> 
+              Certaines API sont indisponibles. L'application pourrait ne pas fonctionner correctement.
+              Vérifiez que les clés API Google sont activées dans la Console Google Cloud.
+              <button 
+                onClick={checkApiStatus} 
+                className="ml-2 text-blue-600 underline hover:text-blue-800"
+              >
+                Vérifier à nouveau
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Conseils pour de meilleurs résultats */}
+        <div className="mb-6 bg-blue-50 p-4 rounded-lg border border-blue-100">
+          <h3 className="text-md font-medium text-blue-800 mb-2">Conseils pour de meilleurs résultats :</h3>
+          <ul className="list-disc pl-5 text-sm text-blue-700 space-y-1">
+            {tips.map((tip, index) => (
+              <li key={index}>{tip}</li>
+            ))}
+          </ul>
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           
           {/* Section Upload */}
@@ -120,6 +237,7 @@ function App() {
                 <div className="py-8">
                   <FaUpload className="mx-auto text-4xl text-gray-400 mb-2" />
                   <p className="text-gray-500">Glissez-déposez une image ou cliquez pour parcourir</p>
+                  <p className="text-xs text-gray-400 mt-2">Formats acceptés: JPG, PNG, GIF (max 10MB)</p>
                 </div>
               )}
             </div>
@@ -130,9 +248,13 @@ function App() {
                   Fichier sélectionné: <span className="font-medium">{selectedFile.name}</span>
                 </p>
                 <button 
-                  className="w-full py-2 px-4 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 transition flex items-center justify-center"
+                  className={`w-full py-2 px-4 rounded-lg shadow transition flex items-center justify-center ${
+                    (!apiStatus.vision?.available || !apiStatus.search?.available) 
+                      ? 'bg-gray-400 text-white cursor-not-allowed' 
+                      : 'bg-blue-600 text-white hover:bg-blue-700'
+                  }`}
                   onClick={handleAnalyze}
-                  disabled={loading}
+                  disabled={loading || !apiStatus.vision?.available || !apiStatus.search?.available}
                 >
                   {loading ? (
                     <>
@@ -144,11 +266,18 @@ function App() {
                     </>
                   )}
                 </button>
+                
+                {(!apiStatus.vision?.available || !apiStatus.search?.available) && (
+                  <p className="text-xs text-red-600 mt-1">
+                    Impossible d'analyser: APIs indisponibles
+                  </p>
+                )}
               </div>
             )}
             
             {error && (
-              <div className="mt-4 p-3 bg-red-100 text-red-700 rounded-lg">
+              <div className="mt-4 p-4 bg-red-50 border border-red-100 text-red-700 rounded-lg whitespace-pre-line">
+                <FaExclamationTriangle className="inline-block mr-1" /> 
                 {error}
               </div>
             )}
@@ -162,6 +291,7 @@ function App() {
               <div className="py-20 text-center">
                 <BiLoaderAlt className="animate-spin text-4xl text-blue-600 mx-auto mb-4" />
                 <p className="text-gray-600">Analyse de votre image et recherche de produits similaires...</p>
+                <p className="text-xs text-gray-400 mt-2">Cela peut prendre jusqu'à 30 secondes</p>
               </div>
             ) : results ? (
               <div>
@@ -221,7 +351,7 @@ function App() {
                 <div>
                   <h3 className="font-medium text-lg mb-4">Produits similaires</h3>
                   
-                  {results.similarProducts.length > 0 ? (
+                  {results.similarProducts && results.similarProducts.length > 0 ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       {results.similarProducts.map((product, index) => (
                         <a 
@@ -258,9 +388,11 @@ function App() {
                       ))}
                     </div>
                   ) : (
-                    <p className="text-gray-600 text-center py-8">
-                      Aucun produit similaire trouvé.
-                    </p>
+                    <div className="text-gray-600 text-center py-8 bg-gray-50 rounded-lg">
+                      <FaShoppingBag className="text-4xl mx-auto mb-4 opacity-30" />
+                      <p>Aucun produit similaire trouvé.</p>
+                      <p className="text-sm mt-2">Essayez une autre image ou modifiez les termes de recherche.</p>
+                    </div>
                   )}
                 </div>
               </div>
@@ -277,6 +409,7 @@ function App() {
       <footer className="bg-gray-800 text-white py-6 mt-12">
         <div className="container mx-auto px-4 text-center">
           <p className="text-sm">Fashion Finder &copy; {new Date().getFullYear()} - Trouvez des vêtements similaires facilement</p>
+          <p className="text-xs mt-2 text-gray-400">Propulsé par Google Vision API et Google Custom Search</p>
         </div>
       </footer>
     </div>
