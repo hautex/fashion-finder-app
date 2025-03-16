@@ -12,7 +12,7 @@ if %ERRORLEVEL% neq 0 (
     exit /b 1
 )
 
-echo [1/5] Installation des dependances du backend...
+echo [1/6] Installation des dependances du backend...
 cd "%~dp0..\backend"
 call npm install
 if %ERRORLEVEL% neq 0 (
@@ -21,7 +21,7 @@ if %ERRORLEVEL% neq 0 (
     exit /b 1
 )
 
-echo [2/5] Installation des dependances du frontend...
+echo [2/6] Installation des dependances du frontend...
 cd "%~dp0..\frontend"
 call npm install
 if %ERRORLEVEL% neq 0 (
@@ -30,16 +30,28 @@ if %ERRORLEVEL% neq 0 (
     exit /b 1
 )
 
-echo [3/5] Installation des plugins Tailwind CSS...
+echo [3/6] Installation des plugins Tailwind CSS...
 call npm install --save @tailwindcss/aspect-ratio @tailwindcss/line-clamp
 if %ERRORLEVEL% neq 0 (
     echo ATTENTION: L'installation des plugins Tailwind a echoue, mais l'application peut fonctionner sans.
 )
 
-echo [4/5] Demarrage du serveur backend...
+echo [4/6] Demarrage du serveur backend...
 start cmd /k "cd %~dp0..\backend && npm start"
 
-echo [5/5] Demarrage de l'application frontend...
+echo Patientez 5 secondes pour laisser le backend demarrer...
+timeout /t 5 /nobreak >nul
+
+echo [5/6] Verification des APIs Google...
+echo.
+echo =====================================
+echo IMPORTANT: Même si les APIs ne sont pas disponibles, l'application fonctionnera 
+echo avec des résultats pré-définis pour vous permettre de la tester.
+echo =====================================
+echo.
+curl -s "http://localhost:5000/api/check-apis" > nul
+
+echo [6/6] Demarrage de l'application frontend...
 start cmd /k "cd %~dp0..\frontend && npm start"
 
 echo.
