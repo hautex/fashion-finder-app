@@ -365,3 +365,84 @@ function App() {
       addLog('Processus d\'analyse terminé', 'info');
     }
   };
+
+  // Fonction pour basculer en mode fallback
+  const toggleFallbackMode = () => {
+    setUseFallback(!useFallback);
+    setDetailedError(null);
+    setError('');
+    addLog(useFallback 
+      ? 'Passage en mode analyse réelle' 
+      : 'Passage en mode démonstration', 'info');
+  };
+
+  // Fonction utilitaire pour corriger les liens manquants
+  const fixImageUrl = (url) => {
+    if (!url || url === '') {
+      return 'https://via.placeholder.com/300x150?text=Image+non+disponible';
+    }
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return url;
+    }
+    return 'https://' + url;
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-100">
+      <header className="bg-blue-600 text-white shadow-lg">
+        <div className="container mx-auto py-4 px-4 sm:px-6 lg:px-8 flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <RiShirtLine className="text-2xl" />
+            <h1 className="text-2xl font-bold">Fashion Finder</h1>
+          </div>
+          <div className="text-sm hidden sm:block">
+            <button 
+              onClick={toggleFallbackMode} 
+              className={`px-4 py-2 rounded-lg font-medium ${useFallback 
+                ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200' 
+                : 'bg-blue-700 text-white hover:bg-blue-800'}`}
+            >
+              {useFallback ? '🔄 Mode démonstration actif' : '🔍 Mode analyse réelle'}
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <main className="container mx-auto py-8 px-4 sm:px-6 lg:px-8">
+        {/* Bannière mode démonstration */}
+        {useFallback && (
+          <div className="mb-6 bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-lg">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <FaInfoCircle className="h-5 w-5 text-yellow-500" />
+              </div>
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-yellow-800">Mode démonstration activé</h3>
+                <div className="mt-2 text-sm text-yellow-700">
+                  <p>
+                    Dans ce mode, l'application affichera toujours les mêmes résultats prédéfinis, quelle que soit l'image téléchargée.
+                    Ceci permet de voir comment l'application fonctionne sans dépendre des APIs Google.
+                  </p>
+                  <p className="mt-1">
+                    <button
+                      onClick={toggleFallbackMode}
+                      className="font-medium text-yellow-800 hover:text-yellow-900 underline"
+                    >
+                      Cliquez ici pour passer en mode d'analyse réelle
+                    </button>
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Conseils pour de meilleurs résultats */}
+        <div className="mb-6 bg-blue-50 p-4 rounded-lg border border-blue-100">
+          <h3 className="text-md font-medium text-blue-800 mb-2">Conseils pour de meilleurs résultats :</h3>
+          <ul className="list-disc pl-5 text-sm text-blue-700 space-y-1">
+            {tips.map((tip, index) => (
+              <li key={index}>{tip}</li>
+            ))}
+          </ul>
+        </div>
