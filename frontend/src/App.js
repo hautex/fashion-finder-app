@@ -172,3 +172,196 @@ function App() {
       });
     }
   };
+
+  const handleFileChange = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      setSelectedFile(file);
+      addLog(`Image sélectionnée: ${file.name} (${Math.round(file.size / 1024)} KB)`, 'info');
+      
+      // Créer une URL pour la prévisualisation
+      setPreviewUrl(URL.createObjectURL(file));
+      // Réinitialiser les résultats précédents
+      setResults(null);
+      setError('');
+      setDetailedError(null);
+    }
+  };
+
+  const handleDragOver = (event) => {
+    event.preventDefault();
+  };
+
+  const handleDrop = (event) => {
+    event.preventDefault();
+    const file = event.dataTransfer.files[0];
+    if (file) {
+      setSelectedFile(file);
+      addLog(`Image déposée: ${file.name} (${Math.round(file.size / 1024)} KB)`, 'info');
+      setPreviewUrl(URL.createObjectURL(file));
+      setResults(null);
+      setError('');
+      setDetailedError(null);
+    }
+  };
+
+  const handleUploadClick = () => {
+    fileInputRef.current.click();
+  };
+
+  const handleAnalyze = async () => {
+    if (!selectedFile) {
+      setError('Veuillez sélectionner une image à analyser.');
+      addLog('Erreur: Aucune image sélectionnée', 'error');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+    setDetailedError(null);
+    clearLogs();
+    addLog('Début de l\'analyse de l\'image...', 'info');
+
+    // Si on utilise la version de secours, ne pas faire d'appel API
+    if (useFallback) {
+      addLog('Mode démonstration activé: utilisation des données prédéfinies', 'warning');
+      
+      // Simulation des étapes d'analyse pour montrer comment ça fonctionne
+      setTimeout(() => { addLog('Préparation de l\'image...', 'info'); }, 300);
+      setTimeout(() => { addLog('Détection du vêtement: Robe de cocktail trouvée', 'success'); }, 800);
+      setTimeout(() => { addLog('Analyse des couleurs: bleu marine dominant', 'success'); }, 1300);
+      setTimeout(() => { addLog('Détection des caractéristiques: cape, élégant', 'success'); }, 1800);
+      setTimeout(() => { addLog('Construction de la requête de recherche: "robe cape soirée bleu marine Ralph Lauren"', 'info'); }, 2300);
+      setTimeout(() => { addLog('Recherche de produits similaires...', 'info'); }, 2800);
+      setTimeout(() => { addLog('5 produits similaires trouvés', 'success'); }, 3500);
+      setTimeout(() => { 
+        setResults(fallbackResults);
+        setLoading(false);
+        addLog('Analyse terminée avec succès', 'success');
+      }, 4000);
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('image', selectedFile);
+    addLog('Image préparée pour l\'envoi au serveur', 'info');
+
+    try {
+      addLog('Envoi de l\'image au serveur backend...', 'info');
+      
+      const response = await fetch('http://localhost:5000/api/analyze', {
+        method: 'POST',
+        body: formData,
+      });
+
+      addLog(`Réponse reçue du serveur: statut ${response.status}`, response.ok ? 'success' : 'error');
+      
+      let data;
+      let responseText;
+      
+      try {
+        // Essayer d'obtenir le texte brut de la réponse d'abord
+        responseText = await response.text();
+        addLog('Réponse reçue', 'info');
+        
+        // Puis essayer de parser en JSON
+        try {
+          data = JSON.parse(responseText);
+          addLog('Données parsées avec succès', 'success');
+          
+          // Afficher les étapes d'analyse
+          if (data.analysis) {
+            if (data.analysis.labels && data.analysis.labels.length) {
+              addLog(`Détection: ${data.analysis.labels.map(l => l.description).join(', ')}`, 'success');
+            }
+            
+            if (data.analysis.colors && data.analysis.colors.length) {
+              addLog(`Couleurs identifiées: ${data.analysis.colors.length} couleurs dominantes`, 'success');
+            }
+            
+            if (data.analysis.objects && data.analysis.objects.length) {
+              addLog(`Objets détectés: ${data.analysis.objects.map(o => o.name).join(', ')}`, 'success');
+            }
+          }
+          
+          if (data.searchQuery) {
+            addLog(`Requête de recherche: "${data.searchQuery}"`, 'info');
+          }
+          
+          if (data.similarProducts) {
+            addLog(`${data.similarProducts.length} produits similaires trouvés`, data.similarProducts.length > 0 ? 'success' : 'warning');
+          }
+          
+        } catch (parseError) {
+          // Si le parsing échoue, stocker le texte brut comme erreur détaillée
+          addLog('Erreur: Impossible de parser la réponse JSON', 'error');
+          addLog(`Erreur détaillée: ${parseError.message}`, 'error');
+          
+          const errorDetails = {
+            status: response.status,
+            statusText: response.statusText,
+            responseText: responseText,
+            parseError: parseError.toString()
+          };
+          
+          setDetailedError(errorDetails);
+          setError(`Erreur de parsing de la réponse. Voir les détails ci-dessous.`);
+          throw new Error('Erreur de parsing JSON: ' + parseError.message);
+        }
+      } catch (textError) {
+        // Si l'extraction du texte échoue
+        addLog('Erreur: Impossible de lire la réponse', 'error');
+        
+        const errorDetails = {
+          status: response.status,
+          statusText: response.statusText,
+          error: textError.toString()
+        };
+        
+        setDetailedError(errorDetails);
+        setError(`Erreur lors de la lecture de la réponse: ${textError.message}`);
+        throw new Error('Erreur lors de la lecture de la réponse: ' + textError.message);
+      }
+
+      if (!data || !data.success) {
+        addLog('Erreur: Données invalides ou erreur signalée par le serveur', 'error');
+        
+        const errorDetails = {
+          status: response.status,
+          data: data,
+          info: 'La réponse ne contient pas de données valides ou success=false'
+        };
+        
+        setDetailedError(errorDetails);
+        setError('Les données reçues sont invalides ou indiquent une erreur.');
+        console.warn('Données invalides reçues, utilisation du fallback');
+        
+        addLog('Utilisation des résultats de secours', 'warning');
+        setResults(fallbackResults);
+      } else {
+        addLog('Analyse complétée avec succès', 'success');
+        setResults(data);
+      }
+    } catch (error) {
+      console.error('Erreur lors de l\'analyse:', error);
+      addLog(`Erreur critique: ${error.message}`, 'error');
+      
+      // Stocker tous les détails de l'erreur
+      const errorDetails = {
+        message: error.message,
+        stack: error.stack,
+        name: error.name,
+        info: 'Erreur pendant l\'envoi de la requête au serveur'
+      };
+      
+      setDetailedError(errorDetails);
+      setError(`Une erreur de communication est survenue: ${error.message}`);
+      
+      // En cas d'erreur frontale, utiliser les résultats de secours
+      addLog('Utilisation des résultats de secours après erreur', 'warning');
+      setResults(fallbackResults);
+    } finally {
+      setLoading(false);
+      addLog('Processus d\'analyse terminé', 'info');
+    }
+  };
