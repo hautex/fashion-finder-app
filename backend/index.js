@@ -2,7 +2,6 @@ const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const multer = require('multer');
-const { ImageAnnotatorClient } = require('@google-cloud/vision');
 const axios = require('axios');
 const path = require('path');
 const fs = require('fs');
@@ -42,66 +41,48 @@ const upload = multer({
   }
 });
 
-// Configuration Google Vision API
-const configureVisionClient = () => {
-  try {
-    // Méthode 1 : Utiliser les credentials si disponibles
-    if (process.env.GOOGLE_VISION_CREDENTIALS) {
-      const credentials = JSON.parse(process.env.GOOGLE_VISION_CREDENTIALS);
-      return new ImageAnnotatorClient({ credentials });
-    }
-    
-    // Méthode 2 : Utiliser la clé API
-    const apiKey = process.env.GOOGLE_VISION_API_KEY;
-    if (!apiKey) {
-      throw new Error('Google Vision API key non trouvée dans les variables d\'environnement');
-    }
-    
-    return new ImageAnnotatorClient({ 
-      credentials: {
-        client_email: "vision-api@elevated-guard-411822.iam.gserviceaccount.com",
-        private_key: "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQCaRnBlI5ZWvF2o\nkYBiiPZV5nzjCJLnM/QXCngB1NYhEgLgGE2t1iZLzrPmL6rOOYIIuCpxXGiFA44q\nFwI9XD+UXPnGzRhL37GBl35/1Eoq+TVuG1tZADMaFxxGqVvA7o/NYkbWoYrX4Wlm\nMHfE8zXF3iYyXzU3RqIV1ysLTRdxr78FvJjsqdPdQBKOAUfL1ETJJWWXc/op1nl0\nGJdkQKtpPnO7IBN9ZLe7WkNi7bUEUxxS5skfUcf8jKFeSj0+zLqcM3EzqEqrxMgH\n79GOqRAw4SbG1uZg8AXdH9UAF0wLTYL1QGegdS2dKKn6fLTZxTZE6o1dLZBHXJTR\nxvb4LVF5AgMBAAECggEABaqZdHmQQrCqH+izDV0S5H4I+Q6Xo+G/EBj5BpJ30V0D\n6yDYFFJo5QXgVqE9T9GsOlIhBB8fN+ucfiwV0XVeL/DPcjkX9kZGJhCoT3DD+pnI\nFCJT3JwcDwJu7XxU2pucM3NYLedMww+By0QkCu2KQDPn09Zjs85YLGZBwsHm96hE\ndiBL9JGmwlvKzWxsjn9T/yK4r1BX/j3nEZJM7gBwZXnGdhxhSXwjIHmCGxw47J5e\nWBo+5skMn/GpJ8/HxDw0sBw1x48jf22nAk0/eW0hJQz0JXcHVMrEajZQqUNxdPE4\nmwmVOHKhCt/nNx36GyXnfGfzffUbAkSYuRsQeUAF2QKBgQDQavXayshDTXMkSUJd\nIAq/QMwzZnP7YGI5mRFJfXGzYCqLSWCgDwh6F1KohdgDK+Dd3Rt6RP3f71mRZBW/\n26R0HqLZmAT6r6wuswAqLvv4vCkwT+9rUIFbFYEAwdxP4cAT+nsRTSm5PJdFmYE/\nSBMjcEQOPDhbr9EKMl6KfDzs7QKBgQC9D1q6p1+3d4JYc6Z2qx6qXP1tKfX1JLeC\neJsE/UgkrS94HG6SsiO2YDjsD29qP1TfX7jTr4ISE6Mx8w7dOcJnmwLHKrfQnNPn\nEr6YRzFmvzxlnyhLPGKcrBNM8qyD8DyVTsihNiYM1HmjHFpGhNkkh+Su/JTzGUmX\ngY7kMKDLDQKBgFzprmC1z7/T2IRQZ5CjQCbj9uYSj2MIEa8kP/IfHoKVMLXMJdtw\nx60LCvVP78ixq8LCgIIJOYGnzZ9EJZvqO19N/ZpBGWnWkxjvbEb6/qTjLnASUE4Y\nyL48lZdxDKnf3/06yULW1xjHRFnCBZ5LwLX6x7y8jiDtXeUJwEBEVS8RAoGAA44N\nj6F8lUKL9Q7GdWK0V5kOJcr84U7nvKEmJWG2mvOlKSWWFPHj3zPJRtIEzwYr3/2t\niLNnvUBuNSFrQ7yq5kpnYCXEVjA25MV+eI5z9hxoAc8evczZ0Jp9r3eVX57++QFH\nWKcUP20Pu8jXFJOOhxiG2g9nMd7A80Z/yJAD4bkCgYBB3Iq0c29qMOOXJv8dCO+B\nepSQGb0dzPdXK5tOVQB+SPCB2qk3Z4UUmHwsYV5OdJVVU6CQ96Q6RQjxr041j6Kr\nGCF2iJrBCeKNUU0gAY3QQpLkZeV+FzRiYWBBLFScCMv70J6uwIArVQo7Jk5HzIUF\nHNKHLsL8MihG9L9+aHHrXg==\n-----END PRIVATE KEY-----\n",
-      },
-    });
-  } catch (error) {
-    console.error('Erreur lors de la configuration du client Google Vision:', error);
-    throw error;
-  }
-};
-
-// Fonction pour analyser l'image avec Google Vision API
+// Fonction pour analyser l'image avec Google Vision API directement via HTTPS
 async function analyzeImage(imagePath) {
   try {
-    const visionClient = configureVisionClient();
+    console.log("Début de l'analyse de l'image via l'API Vision...");
     
-    // Convertir l'image en base64
+    // Lire l'image et la convertir en base64
     const imageFile = fs.readFileSync(imagePath);
-    const encodedImage = imageFile.toString('base64');
+    const encodedImage = Buffer.from(imageFile).toString('base64');
     
-    // Analyse multi-feature pour obtenir plus d'informations
-    const request = {
-      image: { content: encodedImage },
-      features: [
-        { type: 'LABEL_DETECTION', maxResults: 20 },
-        { type: 'IMAGE_PROPERTIES', maxResults: 5 },
-        { type: 'OBJECT_LOCALIZATION', maxResults: 10 },
-        { type: 'WEB_DETECTION', maxResults: 10 }
+    // Préparer la requête à l'API Vision
+    const apiKey = process.env.GOOGLE_VISION_API_KEY;
+    const url = `https://vision.googleapis.com/v1/images:annotate?key=${apiKey}`;
+    
+    // Construire le corps de la requête
+    const requestBody = {
+      requests: [
+        {
+          image: { content: encodedImage },
+          features: [
+            { type: 'LABEL_DETECTION', maxResults: 15 },
+            { type: 'IMAGE_PROPERTIES', maxResults: 5 },
+            { type: 'OBJECT_LOCALIZATION', maxResults: 10 },
+            { type: 'WEB_DETECTION', maxResults: 10 }
+          ]
+        }
       ]
     };
-
-    // Faire l'appel API
-    const [result] = await visionClient.annotateImage(request);
     
-    // Vérifier s'il y a des erreurs
-    if (result.error) {
-      throw new Error(`Google Vision API error: ${result.error.message}`);
+    console.log("Envoi de la requête à Google Vision API...");
+    const response = await axios.post(url, requestBody);
+    
+    // Vérifier si la réponse contient des erreurs
+    if (response.data.responses[0].error) {
+      throw new Error(`Google Vision API error: ${response.data.responses[0].error.message}`);
     }
-
-    console.log('Vision API response received successfully');
-
+    
+    console.log("Réponse reçue de Google Vision API");
+    
     // Extraire les informations pertinentes
+    const result = response.data.responses[0];
     const { labelAnnotations, imagePropertiesAnnotation, localizedObjectAnnotations, webDetection } = result;
-
+    
     // Extraire les labels pertinents (vêtements, styles, etc.)
     const clothingKeywords = [
       'clothing', 'dress', 'shirt', 'pants', 'jacket', 'suit', 'coat', 
@@ -109,16 +90,16 @@ async function analyzeImage(imagePath) {
       'sweater', 'hoodie', 'tshirt', 't-shirt', 'hat', 'accessory', 'bag',
       'scarf', 'tie', 'sock', 'glove', 'jewelry'
     ];
-
+    
     // Filtrer les labels pertinents
-    const clothingLabels = labelAnnotations.filter(label => {
+    const clothingLabels = (labelAnnotations || []).filter(label => {
       return clothingKeywords.some(keyword => 
         label.description.toLowerCase().includes(keyword)) || 
         label.score > 0.8;  // Inclure aussi les labels avec un score élevé
     });
-
+    
     // Extraire les couleurs dominantes
-    const colors = imagePropertiesAnnotation.dominantColors.colors
+    const colors = (imagePropertiesAnnotation?.dominantColors?.colors || [])
       .slice(0, 5)
       .map(color => {
         const { red, green, blue } = color.color;
@@ -128,88 +109,118 @@ async function analyzeImage(imagePath) {
           pixelFraction: color.pixelFraction
         };
       });
-
+    
     // Extraire les objets détectés
-    const objects = localizedObjectAnnotations.map(obj => ({
+    const objects = (localizedObjectAnnotations || []).map(obj => ({
       name: obj.name,
       confidence: obj.score
     }));
-
+    
     // Extraire les entités web pertinentes si disponibles
-    const webEntities = webDetection?.webEntities || [];
-    const relevantWebEntities = webEntities
+    const webEntities = (webDetection?.webEntities || [])
       .filter(entity => entity.score > 0.5)
       .map(entity => ({
         description: entity.description,
         score: entity.score
       }));
-
+    
+    // Extraire les images similaires du web
+    const similarImages = (webDetection?.visuallySimilarImages || [])
+      .slice(0, 5)
+      .map(image => ({
+        url: image.url
+      }));
+    
     return {
       labels: clothingLabels,
       colors,
       objects,
-      webEntities: relevantWebEntities
+      webEntities,
+      similarImages
     };
   } catch (error) {
     console.error('Erreur détaillée lors de l\'analyse de l\'image:', error);
+    // Essayer d'extraire le message d'erreur de l'API Google Vision
+    if (error.response && error.response.data) {
+      console.error('Réponse d\'erreur de l\'API:', error.response.data);
+    }
     throw error;
   }
 }
 
-// Fonction pour rechercher des produits similaires
+// Fonction pour rechercher des produits similaires en utilisant directement l'API Custom Search
 async function searchSimilarProducts(query) {
   try {
+    console.log(`Recherche pour la requête: "${query}"`);
+    
     const apiKey = process.env.GOOGLE_CUSTOM_SEARCH_API_KEY;
     const cx = process.env.GOOGLE_CUSTOM_SEARCH_ENGINE_ID;
     
     if (!apiKey || !cx) {
       throw new Error('Les clés API Google Custom Search sont manquantes');
     }
-
-    console.log(`Recherche pour la requête: "${query}" avec CX: ${cx}`);
     
-    const response = await axios.get('https://www.googleapis.com/customsearch/v1', {
-      params: {
-        key: apiKey,
-        cx,
-        q: `${query} clothing buy online`,
-        searchType: 'image',
-        num: 10,
-        imgType: 'shopping',
-        rights: 'cc_publicdomain cc_attribute cc_sharealike',
-        safe: 'active'
-      }
-    });
-
+    // Ajouter des termes de shopping à la requête
+    const enhancedQuery = `${query} vêtement acheter`;
+    
+    const url = `https://www.googleapis.com/customsearch/v1?key=${apiKey}&cx=${cx}&q=${encodeURIComponent(enhancedQuery)}&num=10&searchType=image&imgType=photo&safe=active`;
+    
+    console.log(`URL de recherche: ${url}`);
+    const response = await axios.get(url);
+    
     // Vérifier la réponse
-    if (!response.data || response.status !== 200) {
-      throw new Error(`Erreur API Custom Search: ${response.status}`);
+    if (!response.data) {
+      throw new Error('Réponse vide de l\'API Custom Search');
     }
-
+    
     console.log(`Nombre de résultats trouvés: ${response.data.items?.length || 0}`);
-
+    
     // Traiter les résultats
     const items = response.data.items || [];
     return items.map(item => ({
-      title: item.title,
-      link: item.link,
-      displayLink: item.displayLink,
-      image: item.image?.thumbnailLink || item.link,
-      snippet: item.snippet,
+      title: item.title || 'Produit sans titre',
+      link: item.link || '',
+      displayLink: item.displayLink || '',
+      image: item.link || '',  // Utiliser le lien principal comme image
+      snippet: item.snippet || '',
       price: extractPrice(item.title, item.snippet)
     }));
   } catch (error) {
     console.error('Erreur détaillée lors de la recherche de produits:', error);
     if (error.response) {
-      console.error('Réponse API:', error.response.data);
+      console.error('Réponse d\'erreur:', error.response.data);
     }
-    throw error;
+    
+    // En cas d'erreur, essayer une recherche simplifiée en dernier recours
+    try {
+      console.log("Tentative de recherche simplifiée en dernier recours...");
+      const apiKey = process.env.GOOGLE_CUSTOM_SEARCH_API_KEY;
+      const cx = process.env.GOOGLE_CUSTOM_SEARCH_ENGINE_ID;
+      
+      const fallbackQuery = "vêtements mode acheter en ligne";
+      const fallbackUrl = `https://www.googleapis.com/customsearch/v1?key=${apiKey}&cx=${cx}&q=${encodeURIComponent(fallbackQuery)}&num=5`;
+      
+      const fallbackResponse = await axios.get(fallbackUrl);
+      const fallbackItems = fallbackResponse.data.items || [];
+      
+      return fallbackItems.map(item => ({
+        title: item.title || 'Produit sans titre',
+        link: item.link || '',
+        displayLink: item.displayLink || '',
+        image: item.link || '', 
+        snippet: item.snippet || '',
+        price: extractPrice(item.title, item.snippet)
+      }));
+    } catch (fallbackError) {
+      console.error('Échec de la recherche de secours:', fallbackError);
+      throw error; // Relancer l'erreur originale
+    }
   }
 }
 
 // Fonction utilitaire pour extraire un prix d'un texte
 function extractPrice(title, snippet) {
-  const combined = `${title} ${snippet}`;
+  const combined = `${title || ''} ${snippet || ''}`;
   
   // Recherche plus robuste de prix en différentes devises
   const priceRegex = /(\$|€|£|EUR|USD|CAD)?\s?(\d+[\.,]\d{2}|\d+)/;
@@ -225,45 +236,52 @@ function extractPrice(title, snippet) {
 function buildSearchQuery(analysisResults) {
   try {
     // Extraire les labels et objets pertinents
-    const labels = analysisResults.labels.map(label => label.description);
-    const objects = analysisResults.objects.map(obj => obj.name);
-    const webEntities = analysisResults.webEntities.map(entity => entity.description);
+    const labels = (analysisResults.labels || []).map(label => label.description);
+    const objects = (analysisResults.objects || []).map(obj => obj.name);
+    const webEntities = (analysisResults.webEntities || []).map(entity => entity.description);
     
     // Obtenir les couleurs dominantes en termes simples
-    const colorTerms = analysisResults.colors.slice(0, 2).map(color => {
+    const colorTerms = (analysisResults.colors || []).slice(0, 2).map(color => {
       const { rgb } = color;
       const [r, g, b] = rgb.match(/\d+/g).map(Number);
       
       // Convertir RGB en termes de couleur simples
-      if (r > 200 && g > 200 && b > 200) return 'white';
-      if (r < 50 && g < 50 && b < 50) return 'black';
-      if (r > 200 && g < 100 && b < 100) return 'red';
-      if (r < 100 && g > 150 && b < 100) return 'green';
-      if (r < 100 && g < 100 && b > 200) return 'blue';
-      if (r > 200 && g > 150 && b < 100) return 'yellow';
-      if (r > 200 && g < 150 && b > 200) return 'purple';
-      if (r < 150 && g > 150 && b > 150) return 'grey';
+      if (r > 200 && g > 200 && b > 200) return 'blanc';
+      if (r < 50 && g < 50 && b < 50) return 'noir';
+      if (r > 200 && g < 100 && b < 100) return 'rouge';
+      if (r < 100 && g > 150 && b < 100) return 'vert';
+      if (r < 100 && g < 100 && b > 200) return 'bleu';
+      if (r > 200 && g > 150 && b < 100) return 'jaune';
+      if (r > 200 && g < 150 && b > 200) return 'violet';
+      if (r < 150 && g > 150 && b > 150) return 'gris';
       if (r > 230 && g > 100 && b < 100) return 'orange';
       return '';
     }).filter(Boolean);
     
+    // Termes de vêtements en français
+    const clothingTerms = ['vêtement', 'mode', 'habits', 'tenue'];
+    
+    // Termes commerciaux
+    const commercialTerms = ['acheter', 'boutique', 'magasin', 'prix'];
+    
     // Combiner toutes les informations
     const allTerms = [...labels, ...objects, ...webEntities, ...colorTerms];
     
-    // Sélectionner les termes les plus pertinents (score élevé, sans doublons)
+    // Sélectionner les termes les plus pertinents (sans doublons)
     const uniqueTerms = [...new Set(allTerms)];
     
     // Prendre les 5 termes les plus significatifs
     const searchTerms = uniqueTerms.slice(0, 5);
     
-    // Ajouter des termes de shopping
-    searchTerms.push('buy', 'shop');
+    // Ajouter des termes de shopping (un de chaque catégorie)
+    if (clothingTerms.length > 0) searchTerms.push(clothingTerms[0]);
+    if (commercialTerms.length > 0) searchTerms.push(commercialTerms[0]);
     
     return searchTerms.join(' ');
   } catch (error) {
     console.error('Erreur lors de la construction de la requête:', error);
     // Requête de secours en cas d'erreur
-    return 'clothing fashion buy online';
+    return 'vêtement mode acheter en ligne';
   }
 }
 
@@ -271,19 +289,55 @@ function buildSearchQuery(analysisResults) {
 app.get('/api/check-apis', async (req, res) => {
   try {
     // Vérifier Google Vision API
-    const visionClient = configureVisionClient();
-    const visionStatus = { available: true, message: 'API Google Vision disponible' };
-
+    const apiKeyVision = process.env.GOOGLE_VISION_API_KEY;
+    let visionStatus = { available: false, message: 'Clé API manquante' };
+    
+    if (apiKeyVision) {
+      try {
+        const visionTestUrl = `https://vision.googleapis.com/v1/images:annotate?key=${apiKeyVision}`;
+        const visionTestResponse = await axios.post(visionTestUrl, {
+          requests: [{
+            image: { content: '' },
+            features: [{ type: 'LABEL_DETECTION', maxResults: 1 }]
+          }]
+        });
+        
+        // Même si l'API renvoie une erreur pour une image vide, ça confirme que l'API est accessible
+        visionStatus = { available: true, message: 'API Google Vision disponible' };
+      } catch (error) {
+        if (error.response && error.response.status !== 400) {
+          // Une erreur 400 est attendue pour une requête invalide (image vide)
+          visionStatus = { 
+            available: false, 
+            message: `Erreur Vision API: ${error.response?.status || 'Inconnue'}`
+          };
+        } else {
+          // L'API a répondu avec 400, ce qui est normal pour notre test
+          visionStatus = { available: true, message: 'API Google Vision disponible' };
+        }
+      }
+    }
+    
     // Vérifier Google Custom Search API
-    const apiKey = process.env.GOOGLE_CUSTOM_SEARCH_API_KEY;
+    const apiKeySearch = process.env.GOOGLE_CUSTOM_SEARCH_API_KEY;
     const cx = process.env.GOOGLE_CUSTOM_SEARCH_ENGINE_ID;
+    let searchStatus = { available: false, message: 'Clés API manquantes' };
     
-    // Faire une petite requête de test
-    const testResponse = await axios.get('https://www.googleapis.com/customsearch/v1', {
-      params: { key: apiKey, cx, q: 'test', num: 1 }
-    });
-    
-    const searchStatus = { available: true, message: 'API Google Custom Search disponible' };
+    if (apiKeySearch && cx) {
+      try {
+        const searchTestUrl = `https://www.googleapis.com/customsearch/v1?key=${apiKeySearch}&cx=${cx}&q=test&num=1`;
+        const searchTestResponse = await axios.get(searchTestUrl);
+        
+        if (searchTestResponse.data) {
+          searchStatus = { available: true, message: 'API Google Custom Search disponible' };
+        }
+      } catch (error) {
+        searchStatus = { 
+          available: false, 
+          message: `Erreur Custom Search API: ${error.response?.status || 'Inconnue'}`
+        };
+      }
+    }
     
     res.json({ 
       success: true,
@@ -292,21 +346,8 @@ app.get('/api/check-apis', async (req, res) => {
     });
   } catch (error) {
     console.error('Erreur lors de la vérification des APIs:', error);
-    
-    // Déterminer quelle API a échoué
-    let visionStatus = { available: true, message: 'API Google Vision disponible' };
-    let searchStatus = { available: true, message: 'API Google Custom Search disponible' };
-    
-    if (error.message.includes('Vision')) {
-      visionStatus = { available: false, message: error.message };
-    } else {
-      searchStatus = { available: false, message: error.message };
-    }
-    
     res.status(500).json({ 
       success: false,
-      vision: visionStatus,
-      search: searchStatus,
       error: error.message
     });
   }
@@ -370,14 +411,14 @@ app.post('/api/analyze', upload.single('image'), async (req, res) => {
 
 // Route de test
 app.get('/api/test', (req, res) => {
-  res.json({ message: 'API fonctionnelle!', version: '1.1.0' });
+  res.json({ message: 'API fonctionnelle!', version: '1.2.0' });
 });
 
 // Démarrer le serveur
 app.listen(port, () => {
   console.log(`
 =======================================================
-  Fashion Finder API Server
+  Fashion Finder API Server v1.2.0
 =======================================================
   Serveur démarré sur le port ${port}
   
