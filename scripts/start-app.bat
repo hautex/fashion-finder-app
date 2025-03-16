@@ -12,7 +12,7 @@ if %ERRORLEVEL% neq 0 (
     exit /b 1
 )
 
-echo [1/4] Installation des dependances du backend...
+echo [1/5] Installation des dependances du backend...
 cd "%~dp0..\backend"
 call npm install
 if %ERRORLEVEL% neq 0 (
@@ -21,7 +21,7 @@ if %ERRORLEVEL% neq 0 (
     exit /b 1
 )
 
-echo [2/4] Installation des dependances du frontend...
+echo [2/5] Installation des dependances du frontend...
 cd "%~dp0..\frontend"
 call npm install
 if %ERRORLEVEL% neq 0 (
@@ -30,10 +30,16 @@ if %ERRORLEVEL% neq 0 (
     exit /b 1
 )
 
-echo [3/4] Demarrage du serveur backend...
+echo [3/5] Installation des plugins Tailwind CSS...
+call npm install --save @tailwindcss/aspect-ratio @tailwindcss/line-clamp
+if %ERRORLEVEL% neq 0 (
+    echo ATTENTION: L'installation des plugins Tailwind a echoue, mais l'application peut fonctionner sans.
+)
+
+echo [4/5] Demarrage du serveur backend...
 start cmd /k "cd %~dp0..\backend && npm start"
 
-echo [4/4] Demarrage de l'application frontend...
+echo [5/5] Demarrage de l'application frontend...
 start cmd /k "cd %~dp0..\frontend && npm start"
 
 echo.
