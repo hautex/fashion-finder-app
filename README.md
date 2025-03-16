@@ -11,16 +11,12 @@ Application qui permet de trouver des vêtements similaires à partir d'une phot
 - **Recherche intelligente** : recherche de produits similaires sur Google Shopping
 - **UI intuitive** : interface utilisateur moderne avec Tailwind CSS
 - **Résultats détaillés** : affichage des images, prix, description et liens d'achat
-
-## 🛠️ Technologies utilisées
-
-- **Backend** : Node.js, Express
-- **Frontend** : React, Tailwind CSS
-- **APIs** : Google Vision API, Google Custom Search API
+- **Gestion d'erreurs avancée** : diagnostic des problèmes d'API et conseils de dépannage
+- **Vérification automatique** : test des services Google pour garantir le bon fonctionnement
 
 ## 🚀 Installation rapide
 
-### Windows
+### Méthode recommandée (Windows)
 
 1. Clonez ce dépôt
    ```
@@ -28,12 +24,17 @@ Application qui permet de trouver des vêtements similaires à partir d'une phot
    cd fashion-finder-app
    ```
 
-2. Exécutez le script de démarrage
+2. Exécutez le script de vérification pour s'assurer que les APIs sont disponibles
+   ```
+   scripts\check-google-api.bat
+   ```
+
+3. Ou directement le script de démarrage
    ```
    scripts\start-app.bat
    ```
 
-3. L'application s'ouvrira automatiquement dans votre navigateur
+4. L'application s'ouvrira automatiquement dans votre navigateur
 
 ### Installation manuelle (tous systèmes)
 
@@ -42,15 +43,23 @@ Voir les instructions détaillées dans [INSTRUCTIONS.md](INSTRUCTIONS.md)
 ## 📸 Comment utiliser
 
 1. **Téléchargez une image** d'un vêtement que vous aimez
-2. **Cliquez sur "Analyser l'image"**
-3. **Découvrez les produits similaires** avec leurs liens d'achat
+2. **Vérifiez l'état des API** dans le panneau supérieur
+3. **Cliquez sur "Analyser l'image"**
+4. **Découvrez les produits similaires** avec leurs liens d'achat
+
+## 🔍 Astuces pour de meilleurs résultats
+
+- Utilisez des images nettes et bien éclairées
+- Le vêtement devrait occuper la majorité de l'image
+- Préférez les images avec un fond simple
+- Évitez les images avec plusieurs vêtements ou personnes
 
 ## 💻 Structure du projet
 
 ```
 fashion-finder-app/
 ├── backend/             # Serveur Node.js
-│   ├── index.js         # API Express
+│   ├── index.js         # API Express avec intégration Google
 │   ├── package.json     # Dépendances backend
 │   └── .env.local       # Variables d'environnement
 ├── frontend/            # Application React
@@ -69,10 +78,25 @@ L'application est configurée avec :
 - Clé API Google Vision : `AIzaSyCHbV8s_R3Q-zcZ4npyFH06MwhGCdptoNQ`
 - ID du moteur de recherche : `233b9e048806d4add`
 
-Pour vérifier l'activation des APIs :
-```
-scripts\check-google-api.bat
-```
+Pour obtenir vos propres clés API:
+1. Créez un projet dans [Google Cloud Console](https://console.cloud.google.com/)
+2. Activez les APIs "Vision API" et "Custom Search API"
+3. Créez une clé API dans "Identifiants"
+4. Créez un moteur de recherche personnalisé sur [Programmable Search Engine](https://programmablesearchengine.google.com/)
+5. Mettez à jour les valeurs dans le fichier `backend/.env.local`
+
+## 🔧 Dépannage
+
+Si vous rencontrez des problèmes :
+
+1. Exécutez le script de vérification pour diagnostiquer les problèmes d'API
+   ```
+   scripts\check-google-api.bat
+   ```
+
+2. Vérifiez que les APIs Google sont activées et que les clés API fonctionnent
+3. Consultez les logs dans les terminaux du backend et frontend
+4. Essayez avec différentes images si l'analyse échoue
 
 ## 📝 Licence
 
