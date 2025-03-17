@@ -193,6 +193,73 @@ const PRODUCT_URL_PATTERNS = {
       idPosition: 0,
       fullMatch: true
     }
+  ],
+  // Clarks
+  'clarks.fr': [
+    {
+      pattern: /\/c\/([^\/]+)\/([0-9]+)\.html/i,
+      directUrlTemplate: 'https://www.clarks.fr/c/$1/$2.html',
+      idPosition: 0,
+      fullMatch: true
+    }
+  ],
+  // Dr Martens
+  'drmartens.com': [
+    {
+      pattern: /\/fr\/fr\/([^\/]+)\/p\/([0-9]+)/i,
+      directUrlTemplate: 'https://www.drmartens.com/fr/fr/$1/p/$2',
+      idPosition: 0,
+      fullMatch: true
+    }
+  ],
+  // JD Sports
+  'jdsports.fr': [
+    {
+      pattern: /\/product\/([^\/]+)\/([^\/]+)/i,
+      directUrlTemplate: 'https://www.jdsports.fr/product/$1/$2/',
+      idPosition: 0,
+      fullMatch: true
+    }
+  ],
+  // Foot Locker
+  'footlocker.fr': [
+    {
+      pattern: /\/product\/([^\/]+)\/([^\/]+)\.html/i,
+      directUrlTemplate: 'https://www.footlocker.fr/product/$1/$2.html',
+      idPosition: 0,
+      fullMatch: true
+    }
+  ],
+  // Geox
+  'geox.com': [
+    {
+      pattern: /\/([^\/]+)-p-([A-Z0-9]+)/i,
+      directUrlTemplate: 'https://www.geox.com/fr-FR/$1-p-$2.html',
+      idPosition: 0,
+      fullMatch: true
+    }
+  ],
+  // Amazon
+  'amazon.fr': [
+    {
+      pattern: /\/dp\/([A-Z0-9]{10})/i,
+      directUrlTemplate: 'https://www.amazon.fr/dp/$1',
+      idPosition: 1
+    },
+    {
+      pattern: /\/gp\/product\/([A-Z0-9]{10})/i,
+      directUrlTemplate: 'https://www.amazon.fr/dp/$1',
+      idPosition: 1
+    }
+  ],
+  // The Boot Man
+  'thebootman.fr': [
+    {
+      pattern: /\/([^\/]+)\/([^\/]+)\.html/i,
+      directUrlTemplate: 'https://www.thebootman.fr/$1/$2.html',
+      idPosition: 0,
+      fullMatch: true
+    }
   ]
 };
 
@@ -276,6 +343,7 @@ function isProductUrl(url) {
     /ppdp/, // Format La Redoute
     /[0-9]{5,}/, // ID produit numérique long
     /[A-Z0-9]{6,}\.html$/, // Format Adidas/Nike
+    /\/dp\/[A-Z0-9]{10}/, // Format Amazon
     /\.html$/ // Extension commune pour les pages produits
   ];
   
@@ -325,6 +393,59 @@ function isProductUrl(url) {
       if (pattern.test(url)) {
         return true;
       }
+    }
+  }
+  
+  // Patterns spécifiques pour les sites de chaussures
+  const shoeStorePatterns = [
+    // Sites spécialisés dans les chaussures
+    /sarenza\.com/i,
+    /spartoo\.com/i,
+    /courir\.com/i,
+    /jdsports\.fr/i,
+    /footlocker\.fr/i,
+    /clarks\.fr/i,
+    /drmartens\.com/i,
+    /geox\.com/i,
+    /thebootman\.fr/i,
+    /andrelepepe\.com/i,
+    /bocage\.fr/i,
+    /minelli\.fr/i,
+    /aigle\.com/i,
+    /nike\.com/i,
+    /adidas\.fr/i,
+    /puma\.com/i,
+    /newbalance\.fr/i,
+    /converse\.com/i,
+    /asics\.com/i,
+    /fila\.com/i,
+    /reebok\.fr/i,
+    /vans\.fr/i,
+    /timberland\.fr/i
+  ];
+  
+  // Si l'URL provient d'un site spécialisé dans les chaussures,
+  // et n'est pas explicitement une non-URL de produit,
+  // on présume qu'il s'agit d'une page de produit
+  if (shoeStorePatterns.some(pattern => pattern.test(url))) {
+    // Vérifier que l'URL ne contient pas de termes qui indiquent clairement que ce n'est pas un produit
+    const definitelyNotProductPatterns = [
+      /\/politique-de-confidentialit/i,
+      /\/contact/i,
+      /\/faq/i,
+      /\/aide/i,
+      /\/livraison/i,
+      /\/retour/i,
+      /\/condition/i,
+      /\/a-propos/i,
+      /\/blog/i,
+      /\/magasin/i,
+      /\/boutique/i,
+      /\/presse/i
+    ];
+    
+    if (!definitelyNotProductPatterns.some(pattern => pattern.test(url))) {
+      return true;
     }
   }
   
@@ -393,5 +514,6 @@ module.exports = {
   extractDirectProductUrl,
   isProductUrl,
   enrichProductData,
-  verifyProductUrl
+  verifyProductUrl,
+  PRODUCT_URL_PATTERNS
 };
