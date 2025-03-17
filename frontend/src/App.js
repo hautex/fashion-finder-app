@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { FaUpload, FaSearch, FaShoppingBag, FaTag, FaCheck, FaExclamationTriangle, FaInfoCircle, FaExternalLinkAlt, FaBug, FaTerminal } from 'react-icons/fa';
+import { FaUpload, FaSearch, FaShoppingBag, FaTag, FaCheck, FaExclamationTriangle, FaInfoCircle, FaExternalLinkAlt, FaBug, FaTerminal, FaStore, FaEye, FaRegHeart, FaRegEye, FaShareAlt, FaStar } from 'react-icons/fa';
 import { RiShirtLine } from 'react-icons/ri';
 import { BiLoaderAlt } from 'react-icons/bi';
 import './App.css';
@@ -35,6 +35,7 @@ const fallbackResults = {
     {
       title: 'Robe de cocktail à cape en georgette - Ralph Lauren',
       link: 'https://www.ralphlauren.fr/fr/robe-de-cocktail-a-cape-en-georgette-3616533815713.html',
+      directLink: 'https://www.ralphlauren.fr/fr/robe-de-cocktail-a-cape-en-georgette-3616533815713.html',
       displayLink: 'www.ralphlauren.fr',
       image: 'https://www.ralphlauren.fr/dw/image/v2/BFQN_PRD/on/demandware.static/-/Sites-rl-products/default/dwe38c9683/images/524867/524867_3001399_pdl.jpg',
       snippet: 'Robe élégante à cape, idéale pour les événements formels et cocktails.',
@@ -43,6 +44,7 @@ const fallbackResults = {
     {
       title: 'Robe de Cocktail Cape - Bleu Marine',
       link: 'https://fr.shein.com/Cape-Sleeve-Belted-Navy-Pencil-Dress-p-10351290-cat-1727.html',
+      directLink: 'https://fr.shein.com/Cape-Sleeve-Belted-Navy-Pencil-Dress-p-10351290-cat-1727.html',
       displayLink: 'fr.shein.com',
       image: 'https://img.ltwebstatic.com/images3_pi/2022/12/29/1672297837a31ec85513e2397c9eb0e6c21e3c86a2_thumbnail_600x.jpg',
       snippet: 'Robe fourreau élégante avec cape et ceinture, parfaite pour les occasions spéciales.',
@@ -51,6 +53,7 @@ const fallbackResults = {
     {
       title: 'Robe Élégante Midi avec Cape - Collection Soirée',
       link: 'https://www.asos.com/fr/asos-design/asos-design-robe-mi-longue-avec-cape-en-crepe/prd/203080653',
+      directLink: 'https://www.asos.com/fr/prd/203080653',
       displayLink: 'www.asos.com',
       image: 'https://images.asos-media.com/products/asos-design-robe-mi-longue-avec-cape-en-crepe/203080653-1-navy',
       snippet: 'Robe midi élégante avec cape intégrée, coupe fluide et ceinture fine.',
@@ -59,6 +62,7 @@ const fallbackResults = {
     {
       title: 'Robe Cape Chic - Bleu Nuit',
       link: 'https://www2.hm.com/fr_fr/productpage.1115237001.html',
+      directLink: 'https://www2.hm.com/fr_fr/productpage.1115237001.html',
       displayLink: 'www2.hm.com',
       image: 'https://lp2.hm.com/hmgoepprod?set=quality%5B79%5D%2Csource%5B%2F15%2F55%2F15551f6f6719e23707eea5dd232d8333adb2318b.jpg%5D%2Corigin%5Bdam%5D%2Ccategory%5B%5D%2Ctype%5BLOOKBOOK%5D%2Cres%5Bm%5D%2Chmver%5B1%5D&call=url[file:/product/main]',
       snippet: 'Robe élégante avec effet cape, silhouette structurée et coupe mi-longue.',
@@ -67,6 +71,7 @@ const fallbackResults = {
     {
       title: 'Cape-Effect Midi Dress - Navy Blue',
       link: 'https://www.zara.com/fr/fr/robe-mi-longue-effet-cape-p02731168.html',
+      directLink: 'https://www.zara.com/fr/fr/article/2731168.html',
       displayLink: 'www.zara.com',
       image: 'https://static.zara.net/photos///2023/I/0/1/p/2731/168/401/2/w/563/2731168401_1_1_1.jpg?ts=1693305323400',
       snippet: 'Robe mi-longue avec effet cape élégant, en tissu fluide et coupe structurée.',
@@ -89,6 +94,7 @@ function App() {
   const logsEndRef = useRef(null);
   const [useFallback, setUseFallback] = useState(false);
   const [showLogs, setShowLogs] = useState(true);
+  const [viewMode, setViewMode] = useState('grid'); // 'grid' ou 'lens'
 
   // Fonction pour ajouter des logs
   const addLog = (message, type = 'info') => {
@@ -376,6 +382,12 @@ function App() {
       : 'Passage en mode démonstration', 'info');
   };
 
+  // Fonction pour changer le mode d'affichage
+  const toggleViewMode = () => {
+    setViewMode(viewMode === 'grid' ? 'lens' : 'grid');
+    addLog(`Mode d'affichage changé pour: ${viewMode === 'grid' ? 'style Google Lens' : 'grille'}`, 'info');
+  };
+
   // Fonction utilitaire pour corriger les liens manquants
   const fixImageUrl = (url) => {
     if (!url || url === '') {
@@ -387,6 +399,32 @@ function App() {
     return 'https://' + url;
   };
 
+  // Fonction pour extraire le nom du site
+  const extractSiteName = (displayLink) => {
+    if (!displayLink) return '';
+    
+    // Supprimer www. si présent
+    let siteName = displayLink.replace(/^www\./, '');
+    
+    // Extraire le nom de base (avant le premier point)
+    siteName = siteName.split('.')[0];
+    
+    // Mettre la première lettre en majuscule
+    return siteName.charAt(0).toUpperCase() + siteName.slice(1);
+  };
+  
+  // Formater le prix pour l'affichage
+  const formatPrice = (price) => {
+    if (!price) return '';
+    
+    // Vérifier si c'est déjà formaté
+    if (price.startsWith('€') || price.startsWith('$') || price.startsWith('£')) {
+      return price;
+    }
+    
+    return `€${price}`;
+  };
+
   return (
     <div className="min-h-screen bg-gray-100">
       <header className="bg-blue-600 text-white shadow-lg">
@@ -395,7 +433,13 @@ function App() {
             <RiShirtLine className="text-2xl" />
             <h1 className="text-2xl font-bold">Fashion Finder</h1>
           </div>
-          <div className="text-sm hidden sm:block">
+          <div className="flex space-x-2">
+            <button 
+              onClick={toggleViewMode} 
+              className="px-4 py-2 rounded-lg font-medium bg-blue-700 text-white hover:bg-blue-800"
+            >
+              {viewMode === 'grid' ? <><FaRegEye className="inline mr-1" /> Mode Lens</> : <><FaEye className="inline mr-1" /> Mode Grille</>}
+            </button>
             <button 
               onClick={toggleFallbackMode} 
               className={`px-4 py-2 rounded-lg font-medium ${useFallback 
@@ -679,8 +723,8 @@ function App() {
           </div>
         )}
 
-        {/* Produits similaires */}
-        {results && results.similarProducts && (
+        {/* Produits similaires - Mode Grille (traditionnel) */}
+        {results && results.similarProducts && viewMode === 'grid' && (
           <div className="bg-white rounded-lg shadow">
             <div className="p-4 bg-gray-50 border-b">
               <h2 className="text-lg font-semibold text-gray-700 flex items-center">
@@ -717,7 +761,7 @@ function App() {
                         {product.snippet}
                       </p>
                       <a 
-                        href={product.link} 
+                        href={product.directLink || product.link} 
                         target="_blank" 
                         rel="noopener noreferrer"
                         className="inline-flex items-center text-blue-600 hover:text-blue-800 text-sm font-medium"
@@ -727,6 +771,112 @@ function App() {
                     </div>
                   </div>
                 ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Produits similaires - Mode Google Lens */}
+        {results && results.similarProducts && viewMode === 'lens' && (
+          <div className="bg-white rounded-lg shadow mb-6">
+            <div className="p-4 bg-gray-50 border-b">
+              <h2 className="text-lg font-semibold text-gray-700 flex items-center">
+                <FaShoppingBag className="mr-2" />
+                Produits similaires ({results.similarProducts.length})
+              </h2>
+            </div>
+            
+            <div className="p-4 flex">
+              {/* Image originale à gauche */}
+              <div className="w-1/3 pr-4">
+                <div className="bg-gray-100 rounded-lg overflow-hidden h-72">
+                  <img 
+                    src={previewUrl} 
+                    alt="Image analysée"
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+                <div className="mt-4 bg-gray-50 p-3 rounded-lg">
+                  <h3 className="text-sm font-medium text-gray-700 mb-2">Résultats d'analyse</h3>
+                  <div className="flex flex-wrap gap-1 mb-2">
+                    {results.analysis.labels.slice(0,5).map((label, index) => (
+                      <span key={index} className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full text-xs">
+                        {label.description}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {results.analysis.colors.slice(0,3).map((color, index) => (
+                      <div 
+                        key={index} 
+                        className="w-6 h-6 rounded-full border border-gray-300" 
+                        style={{ backgroundColor: color.rgb }}
+                        title={`${color.rgb}`}
+                      ></div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              
+              {/* Liste des produits à droite (style Google Lens) */}
+              <div className="w-2/3 pl-4">
+                <div className="bg-gray-50 p-2 rounded mb-4 text-sm text-gray-600">
+                  {results.similarProducts.length} articles visuellement similaires trouvés
+                </div>
+                
+                <div className="space-y-4">
+                  {results.similarProducts.map((product, index) => (
+                    <a 
+                      key={index}
+                      href={product.directLink || product.link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-start bg-white rounded-lg overflow-hidden border hover:shadow-md transition-shadow p-2"
+                    >
+                      {/* Image du produit */}
+                      <div className="w-24 h-24 flex-shrink-0 rounded overflow-hidden">
+                        <img 
+                          src={fixImageUrl(product.image)} 
+                          alt={product.title}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.src = 'https://via.placeholder.com/100x100?text=Image+non+disponible';
+                          }}
+                        />
+                      </div>
+                      
+                      {/* Informations du produit */}
+                      <div className="ml-4 flex-grow">
+                        <p className="text-sm font-medium text-blue-600 mb-1 line-clamp-2">{product.title}</p>
+                        <div className="flex items-center mb-1">
+                          <FaStore className="text-gray-400 mr-1 text-xs" />
+                          <span className="text-xs text-gray-500">{extractSiteName(product.displayLink)}</span>
+                        </div>
+                        {product.price && (
+                          <p className="text-sm font-bold text-green-600">{formatPrice(product.price)}</p>
+                        )}
+                      </div>
+                      
+                      {/* Actions */}
+                      <div className="flex-shrink-0 flex flex-col items-center gap-2 ml-2">
+                        <div className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 hover:bg-gray-100 hover:text-gray-600">
+                          <FaRegHeart size={14} />
+                        </div>
+                        <div className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 hover:bg-gray-100 hover:text-gray-600">
+                          <FaShareAlt size={14} />
+                        </div>
+                      </div>
+                    </a>
+                  ))}
+                </div>
+                
+                {/* Actions globales */}
+                <div className="mt-6 flex justify-center">
+                  <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 flex items-center">
+                    <FaStar className="mr-2" /> Enregistrer ces résultats
+                  </button>
+                </div>
               </div>
             </div>
           </div>
