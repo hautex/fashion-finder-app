@@ -6,6 +6,7 @@ Application qui permet de trouver des vêtements similaires à partir d'une phot
 
 ## 🌟 Fonctionnalités
 
+### Fonctionnalités de base
 - **Upload d'images** : glisser-déposer ou sélection de fichier
 - **Analyse d'images** : détection du type de vêtement, couleur et style via Google Vision API
 - **Recherche intelligente** : recherche de produits similaires sur Google Shopping
@@ -13,6 +14,16 @@ Application qui permet de trouver des vêtements similaires à partir d'une phot
 - **Résultats détaillés** : affichage des images, prix, description et liens d'achat
 - **Gestion d'erreurs avancée** : diagnostic des problèmes d'API et conseils de dépannage
 - **Vérification automatique** : test des services Google pour garantir le bon fonctionnement
+
+### Nouvelles fonctionnalités (Mars 2025)
+- **Système de favoris** : sauvegarde des produits préférés avec persistance locale
+- **Historique des recherches** : accès aux recherches précédentes avec prévisualisation
+- **Filtrage avancé** : filtrage par prix, couleur, marchands et options de tri multiples
+- **Comparaison de produits** : comparaison côte à côte jusqu'à 4 produits simultanément
+- **Détection améliorée des couleurs** : reconnaissance précise des couleurs avec noms en français
+- **Partage de produits** : fonction de partage intégrée pour les produits intéressants
+
+Pour plus de détails sur les nouvelles fonctionnalités, consultez [NOUVEAUTES.md](NOUVEAUTES.md)
 
 ## 🚀 Installation rapide
 
@@ -36,6 +47,15 @@ Application qui permet de trouver des vêtements similaires à partir d'une phot
 
 4. L'application s'ouvrira automatiquement dans votre navigateur
 
+### Installation des nouvelles fonctionnalités
+
+Pour installer et intégrer les nouvelles fonctionnalités, exécutez :
+```
+scripts\update-app.bat
+```
+
+Ce script installera les dépendances nécessaires et vous guidera pour intégrer les nouveaux composants.
+
 ### Installation manuelle (tous systèmes)
 
 Voir les instructions détaillées dans [INSTRUCTIONS.md](INSTRUCTIONS.md)
@@ -46,6 +66,9 @@ Voir les instructions détaillées dans [INSTRUCTIONS.md](INSTRUCTIONS.md)
 2. **Vérifiez l'état des API** dans le panneau supérieur
 3. **Cliquez sur "Analyser l'image"**
 4. **Découvrez les produits similaires** avec leurs liens d'achat
+5. **Utilisez les filtres** pour affiner les résultats selon vos préférences
+6. **Comparez les produits** en cliquant sur l'icône de comparaison
+7. **Ajoutez aux favoris** les produits que vous souhaitez sauvegarder
 
 ## 🔍 Astuces pour de meilleurs résultats
 
@@ -53,23 +76,35 @@ Voir les instructions détaillées dans [INSTRUCTIONS.md](INSTRUCTIONS.md)
 - Le vêtement devrait occuper la majorité de l'image
 - Préférez les images avec un fond simple
 - Évitez les images avec plusieurs vêtements ou personnes
+- Utilisez le mode de démonstration si les APIs ne sont pas disponibles
 
 ## 💻 Structure du projet
 
 ```
 fashion-finder-app/
-├── backend/             # Serveur Node.js
-│   ├── index.js         # API Express avec intégration Google
-│   ├── package.json     # Dépendances backend
-│   └── .env.local       # Variables d'environnement
-├── frontend/            # Application React
-│   ├── public/          # Fichiers statiques
-│   ├── src/             # Code source React
-│   └── package.json     # Dépendances frontend
-└── scripts/             # Scripts utilitaires
-    ├── start-app.bat            # Script de démarrage tout-en-un
-    ├── check-google-api.bat     # Vérification de l'activation des APIs
-    └── install-tailwind-deps.bat # Installation des dépendances Tailwind
+├── backend/                     # Serveur Node.js
+│   ├── index.js                 # API Express avec intégration Google
+│   ├── services/                # Services métier
+│   │   └── colorDetection.js    # Service de détection améliorée des couleurs
+│   ├── package.json             # Dépendances backend
+│   └── .env.local               # Variables d'environnement
+├── frontend/                    # Application React
+│   ├── public/                  # Fichiers statiques
+│   ├── src/                     # Code source React
+│   │   ├── components/          # Composants React réutilisables
+│   │   │   ├── FavoritesManager.js    # Gestion des favoris et historique
+│   │   │   ├── ResultsFilter.js       # Filtrage des résultats
+│   │   │   └── ProductComparison.js   # Comparaison de produits
+│   │   └── App.js               # Composant principal
+│   └── package.json             # Dépendances frontend
+├── scripts/                     # Scripts utilitaires
+│   ├── start-app.bat            # Script de démarrage tout-en-un
+│   ├── check-google-api.bat     # Vérification de l'activation des APIs
+│   ├── update-app.bat           # Intégration des nouvelles fonctionnalités
+│   └── install-tailwind-deps.bat # Installation des dépendances Tailwind
+├── README.md                    # Documentation principale
+├── INSTRUCTIONS.md              # Instructions détaillées
+└── NOUVEAUTES.md                # Documentation des nouvelles fonctionnalités
 ```
 
 ## 🔑 Configuration des APIs
@@ -97,6 +132,7 @@ Si vous rencontrez des problèmes :
 2. Vérifiez que les APIs Google sont activées et que les clés API fonctionnent
 3. Consultez les logs dans les terminaux du backend et frontend
 4. Essayez avec différentes images si l'analyse échoue
+5. Activez le mode démonstration pour contourner temporairement les problèmes d'API
 
 ## 📝 Licence
 
