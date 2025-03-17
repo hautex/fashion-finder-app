@@ -1,355 +1,671 @@
 /**
- * Service contenant les termes liés à la mode et leurs traductions
- * Permet d'améliorer la qualité des requêtes de recherche et la traduction des termes détectés
+ * Service d'analyse des termes de mode et de génération de requêtes optimisées
+ * Extrait les termes relatifs à la mode et aux vêtements à partir d'une analyse d'image
  */
 
-// Dictionnaire de vêtements et accessoires avec traductions anglais-français
-const FASHION_DICTIONARY = {
-  // Vêtements du haut
-  'shirt': { fr: 'chemise', categories: ['haut'], gender: 'both' },
-  'tshirt': { fr: 't-shirt', categories: ['haut'], gender: 'both' },
-  't-shirt': { fr: 't-shirt', categories: ['haut'], gender: 'both' },
-  'top': { fr: 'haut', categories: ['haut'], gender: 'women' },
-  'blouse': { fr: 'chemisier', categories: ['haut'], gender: 'women' },
-  'sweater': { fr: 'pull', categories: ['haut'], gender: 'both' },
-  'jumper': { fr: 'pull', categories: ['haut'], gender: 'both' },
-  'sweatshirt': { fr: 'sweat', categories: ['haut'], gender: 'both' },
-  'hoodie': { fr: 'sweat à capuche', categories: ['haut'], gender: 'both' },
-  'cardigan': { fr: 'gilet', categories: ['haut'], gender: 'both' },
-  'tank top': { fr: 'débardeur', categories: ['haut'], gender: 'both' },
-  'jersey': { fr: 'maillot', categories: ['haut'], gender: 'both' },
+// Catégories de termes de mode pour classification
+const FASHION_CATEGORIES = {
+  // Types de vêtements
+  clothing: [
+    // Hauts
+    'shirt', 't-shirt', 'tee', 'chemise', 'chemisier', 'blouse', 'top', 'polo', 'débardeur', 'tank top',
+    'sweatshirt', 'hoodie', 'pull', 'pullover', 'sweater', 'cardigan', 'gilet', 'vest',
+    'jacket', 'veste', 'blazer', 'manteau', 'coat', 'blouson', 'bomber', 'cape',
+    'suit', 'costume', 'tuxedo', 'smoking',
+    
+    // Bas
+    'pants', 'pantalon', 'jeans', 'jean', 'shorts', 'short', 'bermuda', 'chino', 'cargo',
+    'skirt', 'jupe', 'legging', 'jegging', 'culotte', 'jogger', 'jogging',
+    'trousers', 'pants',
+    
+    // Robes et combinaisons
+    'dress', 'robe', 'overall', 'salopette', 'jumpsuit', 'combinaison', 'romper', 'playsuit', 'combishort',
+    
+    // Sous-vêtements
+    'underwear', 'sous-vêtement', 'lingerie', 'bra', 'soutien-gorge', 'brief', 'boxer', 'caleçon', 'slip',
+    'undershirt', 'maillot',
+    
+    // Vêtements de nuit
+    'pyjamas', 'pajamas', 'pyjama', 'pajama', 'nightgown', 'chemise de nuit', 'nightshirt',
+    
+    // Maillots de bain
+    'swimwear', 'swimsuit', 'maillot de bain', 'bikini', 'trunks', 'swimming trunks',
+    
+    // Vêtements d'extérieur
+    'outerwear', 'raincoat', 'imperméable', 'trench', 'trench coat', 'coat', 'manteau', 'parka',
+    'anorak', 'windbreaker', 'coupe-vent', 'doudoune', 'puffer jacket', 'down jacket',
+    
+    // Tailles et coupes
+    'slim fit', 'coupe slim', 'regular fit', 'coupe droite', 'loose fit', 'coupe ample',
+    'skinny', 'bootcut', 'straight', 'flare', 'oversized', 'taille haute', 'high waisted',
+    'taille basse', 'low waisted'
+  ],
   
-  // Vêtements du bas
-  'pants': { fr: 'pantalon', categories: ['bas'], gender: 'both' },
-  'trousers': { fr: 'pantalon', categories: ['bas'], gender: 'both' },
-  'jeans': { fr: 'jean', categories: ['bas'], gender: 'both' },
-  'shorts': { fr: 'short', categories: ['bas'], gender: 'both' },
-  'skirt': { fr: 'jupe', categories: ['bas'], gender: 'women' },
-  'leggings': { fr: 'legging', categories: ['bas'], gender: 'women' },
+  // Types de chaussures
+  shoes: [
+    // Chaussures générales
+    'shoe', 'chaussure', 'footwear', 'sneaker', 'basket', 'trainer', 'tennis',
+    
+    // Chaussures formelles
+    'dress shoe', 'richelieu', 'oxford', 'derby', 'brogue', 'loafer', 'mocassin',
+    'formal shoe', 'chaussure habillée', 'monk shoe',
+    
+    // Bottes
+    'boot', 'botte', 'bottine', 'ankle boot', 'chelsea boot', 'combat boot', 'ranger',
+    'riding boot', 'botte d\'équitation', 'cowboy boot', 'botte de cowboy',
+    'wellington', 'rain boot', 'botte de pluie', 'snow boot', 'après-ski',
+    'chelsea', 'desert boot', 'chukka boot',
+    
+    // Sandales et chaussures d'été
+    'sandal', 'sandale', 'flip flop', 'tong', 'slide', 'mule', 'espadrille',
+    
+    // Chaussures de sport
+    'running shoe', 'chaussure de course', 'training shoe', 'chaussure d\'entraînement',
+    'basketball shoe', 'chaussure de basket', 'football boot', 'crampons',
+    'golf shoe', 'chaussure de golf', 'hiking boot', 'chaussure de randonnée',
+    'trail shoe', 'chaussure de trail', 'climbing shoe', 'chaussure d\'escalade',
+    
+    // Chaussures spécifiques pour femmes
+    'heel', 'talon', 'high heel', 'haut talon', 'stiletto', 'escarpin', 'pump',
+    'platform', 'plateforme', 'wedge', 'compensé', 'ballerina', 'ballerine', 'flat',
+    
+    // Chaussures diverses
+    'slipper', 'pantoufle', 'clog', 'sabot', 'moccasin', 'moccasin', 'deck shoe', 'bateau',
+    
+    // Marques populaires
+    'nike', 'adidas', 'puma', 'converse', 'vans', 'new balance', 'asics', 'reebok',
+    'timberland', 'dr martens', 'clarks', 'birkenstock',
+    
+    // Caractéristiques des chaussures
+    'lace-up', 'à lacets', 'slip-on', 'velcro', 'strap', 'à sangle', 'zipper', 'à fermeture éclair',
+    'buckle', 'à boucle', 'elasticated', 'élastique',
+    
+    // Matériaux spécifiques aux chaussures
+    'leather shoe', 'chaussure en cuir', 'suede shoe', 'chaussure en daim', 'canvas shoe', 'chaussure en toile',
+    'patent leather', 'cuir verni', 'mesh', 'maille'
+  ],
   
-  // Robes et combinaisons
-  'dress': { fr: 'robe', categories: ['complet'], gender: 'women' },
-  'gown': { fr: 'robe de soirée', categories: ['complet'], gender: 'women' },
-  'jumpsuit': { fr: 'combinaison', categories: ['complet'], gender: 'both' },
-  'romper': { fr: 'combishort', categories: ['complet'], gender: 'women' },
-  'playsuit': { fr: 'combishort', categories: ['complet'], gender: 'women' },
+  // Types de sacs
+  bags: [
+    // Sacs généraux
+    'bag', 'sac', 'handbag', 'sac à main', 'purse', 'sacoche',
+    
+    // Types spécifiques de sacs
+    'tote', 'cabas', 'backpack', 'sac à dos', 'shoulder bag', 'sac à bandoulière',
+    'clutch', 'pochette', 'messenger bag', 'besace', 'crossbody', 'sac croisé',
+    'hobo bag', 'bucket bag', 'sac seau', 'duffle bag', 'sac de voyage',
+    'weekender', 'bumbag', 'fanny pack', 'sac banane', 'pouch', 'trousse',
+    'briefcase', 'mallette', 'porte-documents', 'suitcase', 'valise',
+    'shopping bag', 'sac de courses', 'gym bag', 'sac de sport',
+    
+    // Marques populaires
+    'louis vuitton', 'chanel', 'hermes', 'birkin', 'kelly', 'gucci', 'prada', 'dior',
+    'balenciaga', 'celine', 'coach', 'michael kors', 'longchamp', 'eastpak',
+    
+    // Caractéristiques de sacs
+    'handle', 'anse', 'strap', 'bandoulière', 'zipper', 'fermeture éclair',
+    'clasp', 'fermoir', 'buckle', 'boucle', 'chain', 'chaîne', 'pocket', 'poche',
+    'compartment', 'compartiment', 'adjustable', 'ajustable',
+    
+    // Matériaux spécifiques aux sacs
+    'leather bag', 'sac en cuir', 'canvas bag', 'sac en toile', 'nylon bag', 'sac en nylon',
+    'suede bag', 'sac en daim', 'fabric bag', 'sac en tissu'
+  ],
   
-  // Vêtements d'extérieur
-  'jacket': { fr: 'veste', categories: ['extérieur'], gender: 'both' },
-  'coat': { fr: 'manteau', categories: ['extérieur'], gender: 'both' },
-  'blazer': { fr: 'blazer', categories: ['extérieur'], gender: 'both' },
-  'suit': { fr: 'costume', categories: ['extérieur'], gender: 'men' },
-  'raincoat': { fr: 'imperméable', categories: ['extérieur'], gender: 'both' },
-  'vest': { fr: 'gilet', categories: ['extérieur'], gender: 'both' },
-  'waistcoat': { fr: 'gilet', categories: ['extérieur'], gender: 'men' },
-  'poncho': { fr: 'poncho', categories: ['extérieur'], gender: 'both' },
-  'cape': { fr: 'cape', categories: ['extérieur'], gender: 'both' },
+  // Accessoires de mode
+  accessories: [
+    // Accessoires pour la tête
+    'hat', 'chapeau', 'cap', 'casquette', 'beret', 'béret', 'beanie', 'bonnet',
+    'fedora', 'panama', 'sun hat', 'chapeau de soleil', 'bucket hat', 'bob',
+    'headband', 'bandeau', 'hair clip', 'barrette', 'hair band', 'élastique',
+    'scrunchie', 'chouchou', 'hair pin', 'épingle à cheveux',
+
+    // Accessoires pour le cou
+    'scarf', 'écharpe', 'shawl', 'châle', 'snood', 'circle scarf', 'tour de cou',
+    'necktie', 'cravate', 'bow tie', 'nœud papillon', 'pocket square', 'pochette',
+    'ascot', 'lavallière', 'choker', 'collier ras-du-cou',
+    
+    // Bijoux
+    'jewelry', 'bijou', 'necklace', 'collier', 'bracelet', 'bangle', 'cuff',
+    'earring', 'boucle d\'oreille', 'ring', 'bague', 'watch', 'montre',
+    'brooch', 'broche', 'anklet', 'bracelet de cheville', 'pendant', 'pendentif',
+    'chain', 'chaîne', 'amulet', 'charm', 'breloque',
+    
+    // Lunettes
+    'glasses', 'lunettes', 'sunglasses', 'lunettes de soleil', 'eyeglasses',
+    'eyewear', 'spectacles', 'shades',
+    
+    // Ceintures et bretelles
+    'belt', 'ceinture', 'suspenders', 'bretelles',
+    
+    // Gants et mitaines
+    'glove', 'gant', 'mitten', 'mitaine', 'fingerless glove', 'gant sans doigts',
+    
+    // Autres accessoires
+    'tie clip', 'pince à cravate', 'cufflink', 'bouton de manchette',
+    'wallet', 'portefeuille', 'card holder', 'porte-cartes', 'keyring', 'porte-clés',
+    'umbrella', 'parapluie', 'fan', 'éventail'
+  ],
   
+  // Matériaux 
+  materials: [
+    // Tissus naturels
+    'cotton', 'coton', 'wool', 'laine', 'silk', 'soie', 'linen', 'lin',
+    'leather', 'cuir', 'suede', 'daim', 'nubuck', 'sheepskin', 'peau de mouton',
+    'cashmere', 'cachemire', 'mohair', 'angora', 'alpaca', 'alpaga',
+    'fur', 'fourrure', 'felt', 'feutre', 'down', 'duvet',
+    
+    // Tissus synthétiques
+    'polyester', 'nylon', 'acrylic', 'acrylique', 'viscose', 'rayon', 'spandex', 'elastane', 'élasthanne',
+    'lycra', 'microfiber', 'microfibre', 'pleather', 'simili-cuir', 'faux leather', 'faux cuir',
+    'faux fur', 'fausse fourrure', 'vinyl', 'vinyle', 'pu leather', 'cuir PU',
+    
+    // Motifs et textures
+    'denim', 'jean', 'velvet', 'velours', 'corduroy', 'velours côtelé', 'tweed',
+    'satin', 'chiffon', 'taffeta', 'taffetas', 'lace', 'dentelle',
+    'mesh', 'filet', 'tulle', 'knit', 'maille', 'quilted', 'matelassé',
+    'canvas', 'toile', 'jersey', 'fleece', 'polaire', 'twill', 'sergé',
+    
+    // Traitements
+    'washed', 'lavé', 'distressed', 'usé', 'embroidered', 'brodé',
+    'printed', 'imprimé', 'perforated', 'perforé', 'studded', 'clouté',
+    'frayed', 'effiloché', 'ripped', 'déchiré', 'stained', 'délavé',
+    'waxed', 'ciré', 'coated', 'enduit', 'waterproof', 'imperméable'
+  ],
+  
+  // Marques et designers
+  brands: [
+    // Luxe et haute couture
+    'chanel', 'dior', 'louis vuitton', 'gucci', 'prada', 'hermès', 'hermes', 'yves saint laurent', 'saint laurent',
+    'balenciaga', 'valentino', 'armani', 'versace', 'fendi', 'burberry', 'givenchy',
+    'celine', 'céline', 'loewe', 'bottega veneta', 'balmain', 'alexander mcqueen', 'stella mccartney',
+    
+    // Fast-fashion et grand public
+    'zara', 'h&m', 'mango', 'uniqlo', 'topshop', 'asos', 'gap', 'banana republic',
+    'forever 21', 'primark', 'pull & bear', 'bershka', 'stradivarius', 'massimo dutti',
+    
+    // Sportswear
+    'nike', 'adidas', 'puma', 'reebok', 'under armour', 'new balance', 'asics',
+    'fila', 'lacoste', 'converse', 'vans', 'jordan', 'lululemon', 'the north face',
+    
+    // Denim et casual
+    'levi\'s', 'levis', 'diesel', 'g-star raw', 'true religion', 'wrangler', 'lee',
+    'tommy hilfiger', 'calvin klein', 'ralph lauren', 'polo ralph lauren', 'superdry',
+    
+    // Chaussures spécifiques
+    'dr martens', 'clarks', 'timberland', 'ugg', 'birkenstock', 'havaianas', 'crocs',
+    'christian louboutin', 'manolo blahnik', 'jimmy choo', 'stuart weitzman',
+    
+    // Marques françaises
+    'sandro', 'maje', 'zadig & voltaire', 'the kooples', 'isabel marant', 'jacquemus',
+    'agnès b', 'agnes b', 'comptoir des cotonniers', 'petit bateau'
+  ],
+  
+  // Styles et occasions
+  styles: [
+    // Styles généraux
+    'casual', 'formel', 'formal', 'elegant', 'élégant', 'chic', 'smart casual',
+    'business', 'bohème', 'bohemian', 'classique', 'classic', 'vintage', 'retro', 'rétro',
+    'modern', 'moderne', 'contemporary', 'contemporain', 'trendy', 'tendance',
+    'minimalist', 'minimaliste', 'maximalist', 'maximaliste', 'edgy', 'streetwear',
+    
+    // Styles plus spécifiques
+    'preppy', 'athleisure', 'sportswear', 'urban', 'urbain', 'grunge', 'punk',
+    'rock', 'goth', 'gothic', 'lolita', 'kawaii', 'hip hop', 'skater', 'surf',
+    'normcore', 'y2k', 'cottagecore', 'dark academia', 'light academia',
+    
+    // Occasions
+    'wedding', 'mariage', 'cocktail', 'party', 'soirée', 'evening', 'black tie',
+    'office', 'bureau', 'work', 'travail', 'weekend', 'vacation', 'vacances',
+    'beach', 'plage', 'resort', 'winter', 'hiver', 'summer', 'été',
+    'spring', 'printemps', 'fall', 'automne', 'festival', 'gym', 'workout',
+    'sport', 'hiking', 'randonnée', 'outdoor', 'extérieur'
+  ]
+};
+
+// Types de vêtements communs avec leurs caractéristiques typiques
+const FASHION_ITEM_MAPPINGS = {
   // Chaussures
-  'shoes': { fr: 'chaussures', categories: ['chaussures'], gender: 'both' },
-  'sneakers': { fr: 'baskets', categories: ['chaussures'], gender: 'both' },
-  'boots': { fr: 'bottes', categories: ['chaussures'], gender: 'both' },
-  'heels': { fr: 'talons', categories: ['chaussures'], gender: 'women' },
-  'flats': { fr: 'ballerines', categories: ['chaussures'], gender: 'women' },
-  'sandals': { fr: 'sandales', categories: ['chaussures'], gender: 'both' },
-  'loafers': { fr: 'mocassins', categories: ['chaussures'], gender: 'both' },
-  'slippers': { fr: 'chaussons', categories: ['chaussures'], gender: 'both' },
-  'espadrilles': { fr: 'espadrilles', categories: ['chaussures'], gender: 'both' },
+  'chelsea boot': ['boot', 'bottine', 'chelsea', 'ankle boot', 'bottine chelsea', 'elastic', 'élastique'],
+  'combat boot': ['boot', 'bottine', 'combat', 'military', 'militaire', 'lace-up', 'à lacets'],
+  'ankle boot': ['boot', 'bottine', 'ankle', 'cheville', 'short boot', 'bottine courte'],
+  'desert boot': ['boot', 'bottine', 'desert', 'chukka', 'suede', 'daim'],
+  'hiking boot': ['boot', 'bottine', 'hiking', 'randonnée', 'outdoor', 'trail'],
+  'riding boot': ['boot', 'botte', 'riding', 'équitation', 'knee-high', 'haute'],
+  'wellington boot': ['boot', 'botte', 'wellington', 'rain', 'pluie', 'rubber', 'caoutchouc'],
+  'cowboy boot': ['boot', 'botte', 'cowboy', 'western', 'pointed toe', 'bout pointu'],
+  'sneaker': ['shoe', 'chaussure', 'sneaker', 'basket', 'trainer', 'tennis', 'casual'],
+  'loafer': ['shoe', 'chaussure', 'loafer', 'mocassin', 'slip-on', 'casual', 'formal'],
+  'oxford': ['shoe', 'chaussure', 'oxford', 'formal', 'formel', 'lace-up', 'à lacets'],
+  'derby': ['shoe', 'chaussure', 'derby', 'formal', 'formel', 'lace-up', 'à lacets'],
+  'brogue': ['shoe', 'chaussure', 'brogue', 'perforated', 'perforé', 'formal', 'formel'],
+  'sandal': ['shoe', 'chaussure', 'sandal', 'sandale', 'summer', 'été', 'open toe', 'bout ouvert'],
+  'high heel': ['shoe', 'chaussure', 'heel', 'talon', 'high heel', 'haut talon', 'stiletto', 'escarpin'],
+  'flat': ['shoe', 'chaussure', 'flat', 'ballet flat', 'ballerine', 'no heel', 'sans talon'],
+  'espadrille': ['shoe', 'chaussure', 'espadrille', 'summer', 'été', 'rope sole', 'semelle en corde'],
   
-  // Sacs et accessoires
-  'bag': { fr: 'sac', categories: ['accessoires'], gender: 'both' },
-  'handbag': { fr: 'sac à main', categories: ['accessoires'], gender: 'women' },
-  'purse': { fr: 'sac à main', categories: ['accessoires'], gender: 'women' },
-  'backpack': { fr: 'sac à dos', categories: ['accessoires'], gender: 'both' },
-  'briefcase': { fr: 'porte-documents', categories: ['accessoires'], gender: 'both' },
-  'clutch': { fr: 'pochette', categories: ['accessoires'], gender: 'women' },
-  'tote': { fr: 'cabas', categories: ['accessoires'], gender: 'both' },
-  'wallet': { fr: 'portefeuille', categories: ['accessoires'], gender: 'both' },
-  'belt': { fr: 'ceinture', categories: ['accessoires'], gender: 'both' },
-  'hat': { fr: 'chapeau', categories: ['accessoires'], gender: 'both' },
-  'cap': { fr: 'casquette', categories: ['accessoires'], gender: 'both' },
-  'scarf': { fr: 'écharpe', categories: ['accessoires'], gender: 'both' },
-  'gloves': { fr: 'gants', categories: ['accessoires'], gender: 'both' },
-  'tie': { fr: 'cravate', categories: ['accessoires'], gender: 'men' },
-  'bow tie': { fr: 'nœud papillon', categories: ['accessoires'], gender: 'men' },
-  'watch': { fr: 'montre', categories: ['accessoires'], gender: 'both' },
-  'jewelry': { fr: 'bijoux', categories: ['accessoires'], gender: 'both' },
-  'necklace': { fr: 'collier', categories: ['accessoires'], gender: 'both' },
-  'bracelet': { fr: 'bracelet', categories: ['accessoires'], gender: 'both' },
-  'ring': { fr: 'bague', categories: ['accessoires'], gender: 'both' },
-  'earrings': { fr: 'boucles d\'oreilles', categories: ['accessoires'], gender: 'women' },
-  'satchel': { fr: 'sacoche', categories: ['accessoires'], gender: 'both' },
-  'messenger bag': { fr: 'sacoche', categories: ['accessoires'], gender: 'both' },
-  'crossbody bag': { fr: 'sac bandoulière', categories: ['accessoires'], gender: 'both' },
+  // Sacs
+  'tote bag': ['bag', 'sac', 'tote', 'cabas', 'shopping bag', 'sac de courses'],
+  'crossbody bag': ['bag', 'sac', 'crossbody', 'cross-body', 'sac bandoulière', 'shoulder bag'],
+  'shoulder bag': ['bag', 'sac', 'shoulder', 'épaule', 'sac à bandoulière'],
+  'backpack': ['bag', 'sac', 'backpack', 'sac à dos', 'rucksack'],
+  'clutch': ['bag', 'sac', 'clutch', 'pochette', 'evening bag', 'sac de soirée'],
+  'messenger bag': ['bag', 'sac', 'messenger', 'besace', 'satchel', 'sacoche'],
+  'briefcase': ['bag', 'sac', 'briefcase', 'porte-documents', 'mallette', 'business', 'travail'],
+  'hobo bag': ['bag', 'sac', 'hobo', 'crescent', 'croissant', 'slouchy', 'décontracté'],
+  'bucket bag': ['bag', 'sac', 'bucket', 'seau', 'drawstring', 'cordon'],
+  'fanny pack': ['bag', 'sac', 'fanny pack', 'belt bag', 'sac banane', 'waist bag'],
   
-  // Sous-vêtements
-  'underwear': { fr: 'sous-vêtements', categories: ['sous-vêtements'], gender: 'both' },
-  'bra': { fr: 'soutien-gorge', categories: ['sous-vêtements'], gender: 'women' },
-  'panties': { fr: 'culotte', categories: ['sous-vêtements'], gender: 'women' },
-  'boxer': { fr: 'boxer', categories: ['sous-vêtements'], gender: 'men' },
-  'briefs': { fr: 'slip', categories: ['sous-vêtements'], gender: 'men' },
-  'lingerie': { fr: 'lingerie', categories: ['sous-vêtements'], gender: 'women' },
+  // Hauts
+  't-shirt': ['top', 'hauts', 't-shirt', 'tee', 'short sleeve', 'manche courte', 'casual'],
+  'shirt': ['top', 'hauts', 'shirt', 'chemise', 'button-up', 'button-down', 'formal', 'formel'],
+  'blouse': ['top', 'hauts', 'blouse', 'chemisier', 'feminine', 'féminin', 'dressy'],
+  'sweater': ['top', 'hauts', 'sweater', 'pull', 'pullover', 'jumper', 'knit', 'tricot'],
+  'hoodie': ['top', 'hauts', 'hoodie', 'sweatshirt à capuche', 'casual', 'hood', 'capuche'],
+  'sweatshirt': ['top', 'hauts', 'sweatshirt', 'sweat', 'casual', 'cotton', 'coton'],
+  'vest': ['top', 'hauts', 'vest', 'gilet', 'sleeveless', 'sans manches', 'layering'],
+  'cardigan': ['top', 'hauts', 'cardigan', 'button-up sweater', 'gilet boutonné', 'knit', 'tricot'],
+  'tank top': ['top', 'hauts', 'tank top', 'débardeur', 'sleeveless', 'sans manches', 'casual'],
+  'jacket': ['outerwear', 'vêtement d\'extérieur', 'jacket', 'veste', 'casual', 'lightweight'],
+  'blazer': ['outerwear', 'vêtement d\'extérieur', 'blazer', 'veste de costume', 'formal', 'formel'],
+  'coat': ['outerwear', 'vêtement d\'extérieur', 'coat', 'manteau', 'winter', 'hiver', 'warm'],
   
-  // Styles de vêtements
-  'formal': { fr: 'formel', categories: ['style'], gender: 'both' },
-  'casual': { fr: 'décontracté', categories: ['style'], gender: 'both' },
-  'sportswear': { fr: 'vêtements de sport', categories: ['style'], gender: 'both' },
-  'athletic': { fr: 'athlétique', categories: ['style'], gender: 'both' },
-  'elegant': { fr: 'élégant', categories: ['style'], gender: 'both' },
-  'vintage': { fr: 'vintage', categories: ['style'], gender: 'both' },
-  'retro': { fr: 'rétro', categories: ['style'], gender: 'both' },
-  'minimalist': { fr: 'minimaliste', categories: ['style'], gender: 'both' },
-  'bohemian': { fr: 'bohème', categories: ['style'], gender: 'both' },
-  'streetwear': { fr: 'streetwear', categories: ['style'], gender: 'both' },
-  'boho': { fr: 'bohème', categories: ['style'], gender: 'both' },
-  'chic': { fr: 'chic', categories: ['style'], gender: 'both' },
-  'preppy': { fr: 'preppy', categories: ['style'], gender: 'both' },
-  'punk': { fr: 'punk', categories: ['style'], gender: 'both' },
+  // Bas
+  'jeans': ['bottom', 'bas', 'jeans', 'jean', 'denim', 'casual', 'everyday', 'quotidien'],
+  'chinos': ['bottom', 'bas', 'chinos', 'chino pants', 'pantalon chino', 'casual', 'cotton', 'coton'],
+  'shorts': ['bottom', 'bas', 'shorts', 'short', 'summer', 'été', 'casual'],
+  'skirt': ['bottom', 'bas', 'skirt', 'jupe', 'feminine', 'féminin'],
+  'leggings': ['bottom', 'bas', 'leggings', 'stretch', 'tight', 'moulant', 'casual'],
+  'trousers': ['bottom', 'bas', 'trousers', 'pantalon', 'formal', 'formel', 'dressy'],
+  'joggers': ['bottom', 'bas', 'joggers', 'jogging', 'sweatpants', 'casual', 'athleisure'],
   
-  // Matériaux
-  'leather': { fr: 'cuir', categories: ['matériau'], gender: 'both' },
-  'cotton': { fr: 'coton', categories: ['matériau'], gender: 'both' },
-  'wool': { fr: 'laine', categories: ['matériau'], gender: 'both' },
-  'silk': { fr: 'soie', categories: ['matériau'], gender: 'both' },
-  'denim': { fr: 'denim', categories: ['matériau'], gender: 'both' },
-  'linen': { fr: 'lin', categories: ['matériau'], gender: 'both' },
-  'polyester': { fr: 'polyester', categories: ['matériau'], gender: 'both' },
-  'nylon': { fr: 'nylon', categories: ['matériau'], gender: 'both' },
-  'suede': { fr: 'daim', categories: ['matériau'], gender: 'both' },
-  'velvet': { fr: 'velours', categories: ['matériau'], gender: 'both' },
-  'satin': { fr: 'satin', categories: ['matériau'], gender: 'both' },
-  'cashmere': { fr: 'cachemire', categories: ['matériau'], gender: 'both' },
-  'canvas': { fr: 'toile', categories: ['matériau'], gender: 'both' },
+  // Robes
+  'dress': ['full garment', 'vêtement complet', 'dress', 'robe', 'feminine', 'féminin'],
+  'maxi dress': ['full garment', 'vêtement complet', 'maxi dress', 'robe longue', 'ankle length', 'longueur cheville'],
+  'midi dress': ['full garment', 'vêtement complet', 'midi dress', 'robe mi-longue', 'mid-calf', 'mi-mollet'],
+  'mini dress': ['full garment', 'vêtement complet', 'mini dress', 'robe courte', 'above knee', 'au-dessus du genou'],
+  'cocktail dress': ['full garment', 'vêtement complet', 'cocktail dress', 'robe de cocktail', 'formal', 'formel'],
+  'evening gown': ['full garment', 'vêtement complet', 'evening gown', 'robe de soirée', 'formal', 'formel'],
+  'sundress': ['full garment', 'vêtement complet', 'sundress', 'robe d\'été', 'summer', 'été', 'casual'],
   
-  // Couleurs (certaines peuvent être détectées directement par l'API Vision)
-  'black': { fr: 'noir', categories: ['couleur'], gender: 'both' },
-  'white': { fr: 'blanc', categories: ['couleur'], gender: 'both' },
-  'red': { fr: 'rouge', categories: ['couleur'], gender: 'both' },
-  'blue': { fr: 'bleu', categories: ['couleur'], gender: 'both' },
-  'navy': { fr: 'bleu marine', categories: ['couleur'], gender: 'both' },
-  'green': { fr: 'vert', categories: ['couleur'], gender: 'both' },
-  'yellow': { fr: 'jaune', categories: ['couleur'], gender: 'both' },
-  'purple': { fr: 'violet', categories: ['couleur'], gender: 'both' },
-  'pink': { fr: 'rose', categories: ['couleur'], gender: 'both' },
-  'orange': { fr: 'orange', categories: ['couleur'], gender: 'both' },
-  'brown': { fr: 'marron', categories: ['couleur'], gender: 'both' },
-  'grey': { fr: 'gris', categories: ['couleur'], gender: 'both' },
-  'gray': { fr: 'gris', categories: ['couleur'], gender: 'both' },
-  'beige': { fr: 'beige', categories: ['couleur'], gender: 'both' },
-  'silver': { fr: 'argenté', categories: ['couleur'], gender: 'both' },
-  'gold': { fr: 'doré', categories: ['couleur'], gender: 'both' },
-  'burgundy': { fr: 'bordeaux', categories: ['couleur'], gender: 'both' },
-  'teal': { fr: 'turquoise', categories: ['couleur'], gender: 'both' },
-  'khaki': { fr: 'kaki', categories: ['couleur'], gender: 'both' },
-  'olive': { fr: 'olive', categories: ['couleur'], gender: 'both' },
-  'mustard': { fr: 'moutarde', categories: ['couleur'], gender: 'both' },
-  'lavender': { fr: 'lavande', categories: ['couleur'], gender: 'both' },
-  
-  // Motifs
-  'pattern': { fr: 'motif', categories: ['motif'], gender: 'both' },
-  'striped': { fr: 'rayé', categories: ['motif'], gender: 'both' },
-  'checkered': { fr: 'à carreaux', categories: ['motif'], gender: 'both' },
-  'plaid': { fr: 'écossais', categories: ['motif'], gender: 'both' },
-  'polka dot': { fr: 'à pois', categories: ['motif'], gender: 'both' },
-  'floral': { fr: 'floral', categories: ['motif'], gender: 'both' },
-  'paisley': { fr: 'cachemire', categories: ['motif'], gender: 'both' },
-  'animal print': { fr: 'imprimé animal', categories: ['motif'], gender: 'both' },
-  'geometric': { fr: 'géométrique', categories: ['motif'], gender: 'both' },
-  'abstract': { fr: 'abstrait', categories: ['motif'], gender: 'both' }
+  // Combinaisons
+  'jumpsuit': ['full garment', 'vêtement complet', 'jumpsuit', 'combinaison', 'one-piece', 'une pièce'],
+  'romper': ['full garment', 'vêtement complet', 'romper', 'combishort', 'playsuit', 'short jumpsuit'],
+  'overalls': ['full garment', 'vêtement complet', 'overalls', 'salopette', 'dungarees', 'casual']
 };
 
 /**
- * Traduit un terme anglais en français (normalisé en minuscule)
- * @param {string} term - Terme en anglais à traduire
- * @returns {string} - Traduction française ou le terme original si non trouvé
- */
-function translateToFrench(term) {
-  if (!term) return '';
-  
-  term = term.toLowerCase().trim();
-  
-  // Vérifier si le terme existe directement dans le dictionnaire
-  if (FASHION_DICTIONARY[term]) {
-    return FASHION_DICTIONARY[term].fr;
-  }
-  
-  // Chercher des mots composés ou des termes partiels
-  for (const [key, value] of Object.entries(FASHION_DICTIONARY)) {
-    if (term.includes(key)) {
-      return value.fr;
-    }
-  }
-  
-  // Chercher des correspondances plurielles (supprimer le 's' final)
-  if (term.endsWith('s') && FASHION_DICTIONARY[term.slice(0, -1)]) {
-    return FASHION_DICTIONARY[term.slice(0, -1)].fr;
-  }
-  
-  // Retourner le terme original si aucune traduction n'est trouvée
-  return term;
-}
-
-/**
- * Identifie la catégorie d'un terme de mode
- * @param {string} term - Terme à catégoriser (en anglais)
- * @returns {string[]} - Tableau des catégories ou vide si non trouvé
- */
-function identifyCategory(term) {
-  if (!term) return [];
-  
-  term = term.toLowerCase().trim();
-  
-  // Vérifier si le terme existe directement dans le dictionnaire
-  if (FASHION_DICTIONARY[term]) {
-    return FASHION_DICTIONARY[term].categories;
-  }
-  
-  // Chercher des mots composés ou des termes partiels
-  for (const [key, value] of Object.entries(FASHION_DICTIONARY)) {
-    if (term.includes(key)) {
-      return value.categories;
-    }
-  }
-  
-  // Chercher des correspondances plurielles (supprimer le 's' final)
-  if (term.endsWith('s') && FASHION_DICTIONARY[term.slice(0, -1)]) {
-    return FASHION_DICTIONARY[term.slice(0, -1)].categories;
-  }
-  
-  return [];
-}
-
-/**
- * Extrait les termes liés à la mode à partir d'une liste de labels
- * @param {Array} labels - Tableau d'objets label de Google Vision API
- * @returns {Object} - Termes classés par catégorie (vêtements, matériaux, couleurs, etc.)
+ * Extrait les termes de mode des labels détectés
+ * @param {Array} labels - Labels détectés par l'API Vision
+ * @return {Object} - Termes de mode classés par catégories
  */
 function extractFashionTerms(labels) {
-  const result = {
-    clothing: [],    // Vêtements
-    materials: [],   // Matériaux
-    colors: [],      // Couleurs
-    styles: [],      // Styles
-    patterns: [],    // Motifs
-    other: []        // Autres termes
+  // Vérification des entrées
+  if (!labels || !Array.isArray(labels)) {
+    console.warn('Aucun label valide fourni pour l\'extraction des termes de mode');
+    return {
+      clothing: [],
+      shoes: [],
+      bags: [],
+      accessories: [],
+      materials: [],
+      brands: [],
+      styles: [],
+      colors: []
+    };
+  }
+  
+  // Normaliser les labels
+  const normalizedLabels = labels.map(label => {
+    // Si label est un objet avec une propriété 'description'
+    if (typeof label === 'object' && label.description) {
+      return {
+        description: label.description.toLowerCase(),
+        score: label.score || 0
+      };
+    }
+    // Si label est une chaîne
+    else if (typeof label === 'string') {
+      return {
+        description: label.toLowerCase(),
+        score: 1.0
+      };
+    }
+    // Invalide
+    return {
+      description: '',
+      score: 0
+    };
+  }).filter(label => label.description.length > 0);
+  
+  // Initialiser les résultats
+  const results = {
+    clothing: [],
+    shoes: [],
+    bags: [],
+    accessories: [],
+    materials: [],
+    brands: [],
+    styles: [],
+    colors: []
   };
   
-  if (!labels || !Array.isArray(labels)) return result;
-  
-  labels.forEach(label => {
-    if (!label.description) return;
+  // Extraire les termes selon les catégories
+  normalizedLabels.forEach(label => {
+    const { description, score } = label;
     
-    const term = label.description.toLowerCase().trim();
-    const termWords = term.split(' ');
-    
-    // Essayer de trouver des correspondances pour chaque mot individuel et pour le terme complet
-    [...termWords, term].forEach(word => {
-      if (FASHION_DICTIONARY[word]) {
-        const categories = FASHION_DICTIONARY[word].categories;
-        
-        if (categories.includes('haut') || categories.includes('bas') || 
-            categories.includes('complet') || categories.includes('extérieur') || 
-            categories.includes('chaussures') || categories.includes('sous-vêtements')) {
-          if (!result.clothing.includes(word)) {
-            result.clothing.push(word);
+    // Parcourir toutes les catégories
+    for (const [category, terms] of Object.entries(FASHION_CATEGORIES)) {
+      // Vérifier si la description correspond à un terme de la catégorie
+      for (const term of terms) {
+        if (description.includes(term.toLowerCase())) {
+          // Ajouter à la catégorie correspondante s'il n'y est pas déjà
+          const resultCategory = 
+            category === 'clothing' ? 'clothing' :
+            category === 'shoes' ? 'shoes' :
+            category === 'bags' ? 'bags' :
+            category === 'accessories' ? 'accessories' :
+            category === 'materials' ? 'materials' :
+            category === 'brands' ? 'brands' :
+            category === 'styles' ? 'styles' : 'other';
+          
+          // Ajouter le terme à la catégorie s'il n'existe pas déjà
+          if (!results[resultCategory].some(item => item.term === term)) {
+            // L'objet complet avec le score et le terme
+            results[resultCategory].push({
+              term,
+              score,
+              match: description
+            });
           }
-        } else if (categories.includes('matériau')) {
-          if (!result.materials.includes(word)) {
-            result.materials.push(word);
-          }
-        } else if (categories.includes('couleur')) {
-          if (!result.colors.includes(word)) {
-            result.colors.push(word);
-          }
-        } else if (categories.includes('style')) {
-          if (!result.styles.includes(word)) {
-            result.styles.push(word);
-          }
-        } else if (categories.includes('motif')) {
-          if (!result.patterns.includes(word)) {
-            result.patterns.push(word);
-          }
-        } else if (categories.includes('accessoires')) {
-          if (!result.clothing.includes(word)) {
-            result.clothing.push(word);
-          }
-        } else {
-          if (!result.other.includes(word)) {
-            result.other.push(word);
-          }
+          
+          // Une fois trouvé, pas besoin de vérifier d'autres termes pour cette description
+          break;
         }
       }
-      // Termes non reconnus spécifiquement mais qui pourraient être pertinents
-      else if (!result.other.includes(word) && word.length > 3) {
-        result.other.push(word);
+    }
+  });
+  
+  // Trier les résultats par score pour chaque catégorie
+  for (const category in results) {
+    results[category].sort((a, b) => b.score - a.score);
+  }
+  
+  // Diagnostic et analyse avancée pour items spécifiques
+  analyzeSpecificItems(normalizedLabels, results);
+  
+  return results;
+}
+
+/**
+ * Analyse les labels pour identifier des items spécifiques et leurs caractéristiques
+ * @param {Array} labels - Labels normalisés
+ * @param {Object} results - Résultats d'extraction de termes
+ */
+function analyzeSpecificItems(labels, results) {
+  // Parcourir les mappings d'items spécifiques
+  for (const [item, characteristics] of Object.entries(FASHION_ITEM_MAPPINGS)) {
+    // Vérifier si un des labels contient l'item
+    for (const label of labels) {
+      if (label.description.includes(item.toLowerCase())) {
+        // Ajouter toutes les caractéristiques associées
+        characteristics.forEach(char => {
+          // Déterminer dans quelle catégorie placer cette caractéristique
+          let category = 'styles';
+          
+          if (FASHION_CATEGORIES.clothing.includes(char)) category = 'clothing';
+          else if (FASHION_CATEGORIES.shoes.includes(char)) category = 'shoes';
+          else if (FASHION_CATEGORIES.bags.includes(char)) category = 'bags';
+          else if (FASHION_CATEGORIES.accessories.includes(char)) category = 'accessories';
+          else if (FASHION_CATEGORIES.materials.includes(char)) category = 'materials';
+          else if (FASHION_CATEGORIES.brands.includes(char)) category = 'brands';
+          
+          // Ajouter la caractéristique si elle n'existe pas déjà
+          if (!results[category].some(existing => existing.term === char)) {
+            results[category].push({
+              term: char,
+              score: label.score * 0.9, // Légèrement moins sûr que le terme original
+              match: `dérivé de ${item}`,
+              derived: true
+            });
+          }
+        });
+        
+        // Ajouter l'item lui-même s'il n'est pas déjà présent
+        const mainCategory = 
+          item.includes('boot') || item.includes('shoe') || item.includes('sneaker') ? 'shoes' :
+          item.includes('bag') ? 'bags' :
+          'clothing';
+        
+        if (!results[mainCategory].some(existing => existing.term === item)) {
+          results[mainCategory].push({
+            term: item,
+            score: label.score,
+            match: label.description,
+            exact: true
+          });
+        }
+        
+        break; // Sortir de la boucle des labels une fois trouvé
+      }
+    }
+  }
+  
+  // Recherche avancée des termes de marques avec une pondération plus précise
+  labels.forEach(label => {
+    FASHION_CATEGORIES.brands.forEach(brand => {
+      // Vérifier l'occurrence exacte de la marque
+      if (label.description === brand.toLowerCase() || 
+          label.description.includes(` ${brand.toLowerCase()} `)) {
+        if (!results.brands.some(existing => existing.term === brand)) {
+          results.brands.push({
+            term: brand,
+            score: label.score * 1.2, // Priorité plus élevée pour les correspondances exactes de marques
+            match: label.description,
+            exact: true
+          });
+        }
       }
     });
   });
-  
-  return result;
 }
 
 /**
- * Génère une requête de recherche optimisée à partir des termes de mode extraits
- * @param {Object} fashionTerms - Termes classés par catégorie
- * @param {Array} colors - Couleurs détectées par le service de détection de couleurs
- * @returns {string} - Requête de recherche optimisée
+ * Génère une requête optimisée à partir des termes extraits et des couleurs
+ * @param {Object} terms - Termes de mode extraits
+ * @param {Array} colors - Couleurs détectées
+ * @return {String} - Requête optimisée pour la recherche
  */
-function generateOptimizedQuery(fashionTerms, colors = []) {
-  let query = [];
-  
-  // Ajouter les vêtements détectés (en privilégiant la traduction française)
-  if (fashionTerms.clothing.length > 0) {
-    const translatedClothing = fashionTerms.clothing.map(item => translateToFrench(item));
-    query = query.concat(translatedClothing);
+function generateOptimizedQuery(terms, colors) {
+  // Vérification des entrées
+  if (!terms) {
+    console.warn('Aucun terme fourni pour la génération de requête');
+    return 'vêtement mode';
   }
   
-  // Ajouter les couleurs (priorité aux couleurs détectées par le service colorDetection)
-  let colorTerms = [];
+  // Accumulateurs de termes pour la requête
+  const queryTerms = {
+    itemType: [], // Type d'article (chaussure, sac, etc.)
+    itemDetails: [], // Détails spécifiques (chelsea boot, tote bag, etc.)
+    brands: [], // Marques détectées
+    materials: [], // Matériaux (cuir, daim, etc.)
+    styles: [], // Styles (casual, elegant, etc.)
+    colors: [] // Couleurs principales
+  };
+  
+  // Analyser les termes pour construire la requête
+  
+  // 1. Identifier le type principal d'article
+  let mainCategory = '';
+  let mainItemScore = 0;
+  
+  // Trouver la catégorie principale selon le score
+  ['shoes', 'bags', 'clothing'].forEach(category => {
+    if (terms[category] && terms[category].length > 0) {
+      const topItem = terms[category][0];
+      if (topItem.score > mainItemScore) {
+        mainCategory = category;
+        mainItemScore = topItem.score;
+      }
+    }
+  });
+  
+  // 2. Ajouter les termes en fonction de la catégorie principale
+  if (mainCategory) {
+    // Ajouter les termes spécifiques à la catégorie principale
+    terms[mainCategory].slice(0, 3).forEach(item => {
+      const termFr = translateTerm(item.term);
+      
+      // Si c'est un terme spécifique (ex: chelsea boot), l'ajouter aux détails
+      if (item.exact || item.term.includes(' ')) {
+        queryTerms.itemDetails.push(termFr);
+      } 
+      // Sinon, l'ajouter au type d'article
+      else {
+        queryTerms.itemType.push(termFr);
+      }
+    });
+    
+    // Ajouter les marques pertinentes (max 1)
+    if (terms.brands && terms.brands.length > 0) {
+      queryTerms.brands.push(terms.brands[0].term);
+    }
+    
+    // Ajouter les matériaux pertinents (max 2)
+    if (terms.materials && terms.materials.length > 0) {
+      terms.materials.slice(0, 2).forEach(material => {
+        queryTerms.materials.push(translateTerm(material.term));
+      });
+    }
+    
+    // Ajouter les styles pertinents (max 2)
+    if (terms.styles && terms.styles.length > 0) {
+      terms.styles.slice(0, 2).forEach(style => {
+        queryTerms.styles.push(translateTerm(style.term));
+      });
+    }
+  } else {
+    // Si aucune catégorie principale n'est identifiée, utiliser des termes génériques
+    queryTerms.itemType.push('vêtement');
+    queryTerms.styles.push('mode');
+  }
+  
+  // 3. Ajouter les couleurs
   if (colors && colors.length > 0) {
-    colorTerms = colors.slice(0, 2).map(color => color.nameFr || color.nameEn || '');
-  } else if (fashionTerms.colors.length > 0) {
-    colorTerms = fashionTerms.colors.map(color => translateToFrench(color));
+    // Ajouter jusqu'à 2 couleurs principales
+    colors.slice(0, 2).forEach(color => {
+      if (color.nameFr) {
+        queryTerms.colors.push(color.nameFr.toLowerCase());
+      }
+    });
   }
   
-  // Filtrer les couleurs vides
-  colorTerms = colorTerms.filter(color => color && color.length > 0);
-  query = query.concat(colorTerms);
+  // 4. Construire la requête finale
+  let query = '';
+  
+  // Commencer par le type spécifique s'il existe
+  if (queryTerms.itemDetails.length > 0) {
+    query += queryTerms.itemDetails.join(' ') + ' ';
+  } 
+  // Sinon, utiliser le type général
+  else if (queryTerms.itemType.length > 0) {
+    query += queryTerms.itemType.join(' ') + ' ';
+  }
   
   // Ajouter les matériaux
-  if (fashionTerms.materials.length > 0) {
-    const translatedMaterials = fashionTerms.materials.map(material => translateToFrench(material));
-    query = query.concat(translatedMaterials);
+  if (queryTerms.materials.length > 0) {
+    query += queryTerms.materials.join(' ') + ' ';
   }
   
-  // Ajouter les styles (limités à 2 maximum)
-  if (fashionTerms.styles.length > 0) {
-    const translatedStyles = fashionTerms.styles
-      .slice(0, 2)
-      .map(style => translateToFrench(style));
-    query = query.concat(translatedStyles);
+  // Ajouter les couleurs
+  if (queryTerms.colors.length > 0) {
+    query += queryTerms.colors.join(' ') + ' ';
   }
   
-  // Ajouter des termes commerciaux (toujours utiles pour la recherche)
-  query.push('acheter');
-  
-  // Si aucun terme de vêtement n'a été identifié, ajouter un terme générique
-  if (fashionTerms.clothing.length === 0) {
-    query.push('vêtement');
+  // Ajouter les styles
+  if (queryTerms.styles.length > 0) {
+    query += queryTerms.styles.join(' ') + ' ';
   }
   
-  // Nettoyer la requête (supprimer les doublons, filtrer les chaînes vides)
-  const cleanedQuery = [...new Set(query)]
-    .filter(term => term && term.length > 0)
-    .join(' ');
+  // Ajouter les marques à la fin
+  if (queryTerms.brands.length > 0) {
+    query += queryTerms.brands.join(' ') + ' ';
+  }
   
-  return cleanedQuery;
+  // Ajouter un terme commercial pour améliorer la recherche
+  query += 'acheter';
+  
+  // Log de la requête générée
+  console.log('Requête générée:', query);
+  
+  return query.trim();
+}
+
+/**
+ * Traduit un terme de l'anglais vers le français si nécessaire
+ * @param {String} term - Terme à traduire
+ * @return {String} - Terme traduit
+ */
+function translateTerm(term) {
+  // Dictionnaire de traduction pour les termes communs
+  const translations = {
+    // Types de vêtements
+    'shoe': 'chaussure',
+    'boot': 'bottine',
+    'chelsea boot': 'bottine chelsea',
+    'ankle boot': 'bottine',
+    'combat boot': 'boots militaires',
+    'hiking boot': 'chaussure de randonnée',
+    'sneaker': 'basket',
+    'loafer': 'mocassin',
+    'sandal': 'sandale',
+    'high heel': 'talon haut',
+    'flat': 'ballerine',
+    
+    // Sacs
+    'bag': 'sac',
+    'backpack': 'sac à dos',
+    'tote': 'cabas',
+    'shoulder bag': 'sac à bandoulière',
+    'crossbody': 'sac bandoulière',
+    'clutch': 'pochette',
+    'messenger bag': 'besace',
+    'briefcase': 'porte-documents',
+    'bucket bag': 'sac seau',
+    'fanny pack': 'sac banane',
+    
+    // Matériaux
+    'leather': 'cuir',
+    'suede': 'daim',
+    'canvas': 'toile',
+    'cotton': 'coton',
+    'denim': 'jean',
+    'wool': 'laine',
+    'silk': 'soie',
+    'synthetic': 'synthétique',
+    'nylon': 'nylon',
+    'polyester': 'polyester',
+    
+    // Styles
+    'casual': 'décontracté',
+    'formal': 'formel',
+    'elegant': 'élégant',
+    'sport': 'sport',
+    'vintage': 'vintage',
+    'modern': 'moderne',
+    'classic': 'classique',
+    'trendy': 'tendance',
+    'streetwear': 'streetwear',
+    'business': 'business'
+  };
+  
+  // Retourner la traduction si disponible, sinon le terme original
+  return translations[term.toLowerCase()] || term;
 }
 
 module.exports = {
-  FASHION_DICTIONARY,
-  translateToFrench,
-  identifyCategory,
   extractFashionTerms,
-  generateOptimizedQuery
+  generateOptimizedQuery,
+  FASHION_CATEGORIES,
+  FASHION_ITEM_MAPPINGS
 };
