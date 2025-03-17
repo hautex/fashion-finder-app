@@ -5,12 +5,14 @@ const multer = require('multer');
 const axios = require('axios');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 
 // Charger nos services personnalisés
 const colorDetection = require('./services/colorDetection');
 const fashionTerms = require('./services/fashionTerms');
 const objectColorExtractor = require('./services/objectColorExtractor');
 const productSearch = require('./services/productSearch');
+const cacheService = require('./services/cacheService');
 
 // Charger les variables d'environnement
 dotenv.config({ path: path.resolve(__dirname, '.env.local') });
@@ -47,10 +49,33 @@ const upload = multer({
   }
 });
 
+// Fonction pour générer un hash d'une image (pour le cache)
+function generateImageHash(imagePath) {
+  try {
+    const fileBuffer = fs.readFileSync(imagePath);
+    const hashSum = crypto.createHash('sha256');
+    hashSum.update(fileBuffer);
+    return hashSum.digest('hex');
+  } catch (error) {
+    console.error('Erreur lors de la génération du hash de l\'image:', error);
+    return Date.now().toString(); // Fallback: timestamp actuel
+  }
+}
+
 // Fonction pour analyser l'image avec Google Vision API directement via HTTPS
 async function analyzeImage(imagePath) {
   try {
     console.log("Début de l'analyse de l'image via l'API Vision...");
+    
+    // Générer un hash de l'image pour le cache
+    const imageHash = generateImageHash(imagePath);
+    
+    // Vérifier si l'analyse est en cache
+    const cachedAnalysis = cacheService.get('vision', { imageHash });
+    if (cachedAnalysis) {
+      console.log("Résultats d'analyse trouvés en cache");
+      return cachedAnalysis;
+    }
     
     // Lire l'image et la convertir en base64
     const imageFile = fs.readFileSync(imagePath);
@@ -173,7 +198,7 @@ async function analyzeImage(imagePath) {
       }));
     
     // Résultats enrichis
-    return {
+    const analysisResults = {
       labels: labelAnnotations || [],
       colors: objectColors,
       colorDescription,
@@ -187,6 +212,11 @@ async function analyzeImage(imagePath) {
       detectedText,
       detectedLogos
     };
+    
+    // Stocker les résultats dans le cache
+    cacheService.set('vision', { imageHash }, analysisResults);
+    
+    return analysisResults;
   } catch (error) {
     console.error('Erreur détaillée lors de l\'analyse de l\'image:', error);
     // Essayer d'extraire le message d'erreur de l'API Google Vision
@@ -422,6 +452,23 @@ app.get('/api/check-apis', async (req, res) => {
   }
 });
 
+// Route pour obtenir les statistiques du cache
+app.get('/api/cache-stats', (req, res) => {
+  res.json({ 
+    success: true,
+    stats: cacheService.getStats()
+  });
+});
+
+// Route pour vider le cache
+app.post('/api/clear-cache', (req, res) => {
+  cacheService.clear();
+  res.json({ 
+    success: true,
+    message: 'Cache vidé avec succès'
+  });
+});
+
 // Route pour analyser une image et trouver des produits similaires
 app.post('/api/analyze', upload.single('image'), async (req, res) => {
   try {
@@ -444,14 +491,30 @@ app.post('/api/analyze', upload.single('image'), async (req, res) => {
       searchQueryInfo = buildSearchQuery(analysisResults);
       console.log(`Requête de recherche construite: "${searchQueryInfo.query}" (type: ${searchQueryInfo.itemType}, couleur: ${searchQueryInfo.color})`);
       
-      // Rechercher des produits similaires avec notre service amélioré
-      console.log('Début de la recherche de produits similaires...');
-      similarProducts = await productSearch.searchFashionProducts(
-        searchQueryInfo.query, 
-        searchQueryInfo.itemType,
-        searchQueryInfo.color
-      );
-      console.log(`${similarProducts.length} produits similaires trouvés`);
+      // Vérifier le cache pour la recherche
+      const cacheKey = {
+        query: searchQueryInfo.query,
+        itemType: searchQueryInfo.itemType,
+        color: searchQueryInfo.color
+      };
+      
+      const cachedProducts = cacheService.get('search', cacheKey);
+      if (cachedProducts) {
+        console.log('Résultats de recherche trouvés en cache');
+        similarProducts = cachedProducts;
+      } else {
+        // Rechercher des produits similaires avec notre service amélioré
+        console.log('Début de la recherche de produits similaires...');
+        similarProducts = await productSearch.searchFashionProducts(
+          searchQueryInfo.query, 
+          searchQueryInfo.itemType,
+          searchQueryInfo.color
+        );
+        console.log(`${similarProducts.length} produits similaires trouvés`);
+        
+        // Mettre en cache les résultats
+        cacheService.set('search', cacheKey, similarProducts);
+      }
     } catch (error) {
       console.error('Erreur pendant le traitement:', error);
       
@@ -560,12 +623,33 @@ app.post('/api/search', express.json(), async (req, res) => {
     
     console.log(`Recherche manuelle: "${query}" (type: ${itemType || 'non spécifié'}, couleur: ${color || 'non spécifiée'})`);
     
+    // Vérifier le cache pour cette recherche
+    const cacheKey = {
+      query,
+      itemType: itemType || 'default',
+      color: color || ''
+    };
+    
+    const cachedResults = cacheService.get('search', cacheKey);
+    if (cachedResults) {
+      console.log('Résultats de recherche trouvés en cache');
+      return res.json({
+        success: true,
+        searchQuery: query,
+        itemType: itemType || 'default',
+        similarProducts: cachedResults
+      });
+    }
+    
     // Utiliser notre service de recherche amélioré
     const results = await productSearch.searchFashionProducts(
       query, 
       itemType || 'default',
       color || ''
     );
+    
+    // Stocker les résultats dans le cache
+    cacheService.set('search', cacheKey, results);
     
     res.json({
       success: true,
@@ -604,6 +688,8 @@ app.listen(port, () => {
   Routes disponibles:
   - GET  /api/test           Test de base de l'API
   - GET  /api/check-apis     Vérification des API Google
+  - GET  /api/cache-stats    Statistiques du cache
+  - POST /api/clear-cache    Vider le cache
   - POST /api/analyze        Analyse d'image et recherche
   - POST /api/search         Recherche manuelle sans image
   
