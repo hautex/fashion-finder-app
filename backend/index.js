@@ -6,6 +6,10 @@ const axios = require('axios');
 const path = require('path');
 const fs = require('fs');
 
+// Charger nos services personnalisés
+const colorDetection = require('./services/colorDetection');
+const fashionTerms = require('./services/fashionTerms');
+
 // Charger les variables d'environnement
 dotenv.config({ path: path.resolve(__dirname, '.env.local') });
 
@@ -42,48 +46,98 @@ const upload = multer({
 });
 
 // Données de secours pour garantir au moins quelques résultats
-const fallbackResults = [
-  {
-    title: 'Robe de soirée élégante avec cape - Noir/Bleu Marine',
-    link: 'https://www.ralphlauren.fr/fr/robe-de-cocktail-a-cape-en-georgette-3616533815713.html',
-    displayLink: 'www.ralphlauren.fr',
-    image: 'https://www.ralphlauren.fr/dw/image/v2/BFQN_PRD/on/demandware.static/-/Sites-rl-products/default/dwe38c9683/images/524867/524867_3001399_pdl.jpg',
-    snippet: 'Robe élégante à cape, idéale pour les événements formels et cocktails.',
-    price: '€299,00'
-  },
-  {
-    title: 'Robe de Cocktail Cape - Bleu Marine',
-    link: 'https://fr.shein.com/Cape-Sleeve-Belted-Navy-Pencil-Dress-p-10351290-cat-1727.html',
-    displayLink: 'fr.shein.com',
-    image: 'https://img.ltwebstatic.com/images3_pi/2022/12/29/1672297837a31ec85513e2397c9eb0e6c21e3c86a2_thumbnail_600x.jpg',
-    snippet: 'Robe fourreau élégante avec cape et ceinture, parfaite pour les occasions spéciales.',
-    price: '€22,00'
-  },
-  {
-    title: 'Robe Élégante Midi avec Cape - Collection Soirée',
-    link: 'https://www.asos.com/fr/asos-design/asos-design-robe-mi-longue-avec-cape-en-crepe/prd/203080653',
-    displayLink: 'www.asos.com',
-    image: 'https://images.asos-media.com/products/asos-design-robe-mi-longue-avec-cape-en-crepe/203080653-1-navy',
-    snippet: 'Robe midi élégante avec cape intégrée, coupe fluide et ceinture fine.',
-    price: '€69,99'
-  },
-  {
-    title: 'Robe Cape Chic - Bleu Nuit',
-    link: 'https://www2.hm.com/fr_fr/productpage.1115237001.html',
-    displayLink: 'www2.hm.com',
-    image: 'https://lp2.hm.com/hmgoepprod?set=quality%5B79%5D%2Csource%5B%2F15%2F55%2F15551f6f6719e23707eea5dd232d8333adb2318b.jpg%5D%2Corigin%5Bdam%5D%2Ccategory%5B%5D%2Ctype%5BLOOKBOOK%5D%2Cres%5Bm%5D%2Chmver%5B1%5D&call=url[file:/product/main]',
-    snippet: 'Robe élégante avec effet cape, silhouette structurée et coupe mi-longue.',
-    price: '€49,99'
-  },
-  {
-    title: 'Cape-Effect Midi Dress - Navy Blue',
-    link: 'https://www.zara.com/fr/fr/robe-mi-longue-effet-cape-p02731168.html',
-    displayLink: 'www.zara.com',
-    image: 'https://static.zara.net/photos///2023/I/0/1/p/2731/168/401/2/w/563/2731168401_1_1_1.jpg?ts=1693305323400',
-    snippet: 'Robe mi-longue avec effet cape élégant, en tissu fluide et coupe structurée.',
-    price: '€59,95'
-  }
-];
+// Ces résultats de fallback seront adaptés dynamiquement en fonction du type d'article détecté
+const fallbackResults = {
+  robe: [
+    {
+      title: 'Robe de soirée élégante avec cape - Noir/Bleu Marine',
+      link: 'https://www.ralphlauren.fr/fr/robe-de-cocktail-a-cape-en-georgette-3616533815713.html',
+      displayLink: 'www.ralphlauren.fr',
+      image: 'https://www.ralphlauren.fr/dw/image/v2/BFQN_PRD/on/demandware.static/-/Sites-rl-products/default/dwe38c9683/images/524867/524867_3001399_pdl.jpg',
+      snippet: 'Robe élégante à cape, idéale pour les événements formels et cocktails.',
+      price: '€299,00'
+    },
+    {
+      title: 'Robe de Cocktail Cape - Bleu Marine',
+      link: 'https://fr.shein.com/Cape-Sleeve-Belted-Navy-Pencil-Dress-p-10351290-cat-1727.html',
+      displayLink: 'fr.shein.com',
+      image: 'https://img.ltwebstatic.com/images3_pi/2022/12/29/1672297837a31ec85513e2397c9eb0e6c21e3c86a2_thumbnail_600x.jpg',
+      snippet: 'Robe fourreau élégante avec cape et ceinture, parfaite pour les occasions spéciales.',
+      price: '€22,00'
+    },
+    {
+      title: 'Robe Élégante Midi avec Cape - Collection Soirée',
+      link: 'https://www.asos.com/fr/asos-design/asos-design-robe-mi-longue-avec-cape-en-crepe/prd/203080653',
+      displayLink: 'www.asos.com',
+      image: 'https://images.asos-media.com/products/asos-design-robe-mi-longue-avec-cape-en-crepe/203080653-1-navy',
+      snippet: 'Robe midi élégante avec cape intégrée, coupe fluide et ceinture fine.',
+      price: '€69,99'
+    }
+  ],
+  sac: [
+    {
+      title: 'Sacoche en cuir marron - The Bridge Story Uomo',
+      link: 'https://www.thebridgeonlineshop.com/fr/pc_sacoches_the_bridge_story_uomo_marron_cuir_retro_06460001-14.html',
+      displayLink: 'www.thebridgeonlineshop.com',
+      image: 'https://www.thebridgeonlineshop.com/images/products/xxlarge/06460001-14_1.jpg',
+      snippet: 'Sacoche en cuir pleine fleur marron, design vintage avec finitions métal antique.',
+      price: '€299,00'
+    },
+    {
+      title: 'Sacoche Homme Cuir Véritable GALANTY - Marron',
+      link: 'https://galantycuir.fr/produit/sacoche-homme-cuir-veritable-marron/',
+      displayLink: 'galantycuir.fr',
+      image: 'https://galantycuir.fr/wp-content/uploads/2022/06/Sacoche-pour-homme-marron-collection-galanty-cuir-1200-x-1200.jpg',
+      snippet: 'Sacoche en cuir véritable pour homme, fermeture à rabat, bandoulière ajustable.',
+      price: '€129,90'
+    },
+    {
+      title: 'Sacoche Bandoulière en Cuir Marron pour Homme - Lancaster',
+      link: 'https://www.lancasterparis.com/fr/homme/sacoche-bandouliere-homme-en-cuir.html',
+      displayLink: 'www.lancasterparis.com',
+      image: 'https://www.lancasterparis.com/media/catalog/product/cache/8f98983e4fa66442f6f59fa8cabaf2fd/c/u/cuir-chic-sacoche-homme-marron-42-20016-1.jpg',
+      snippet: 'Sacoche Lancaster en cuir de vachette pleine fleur, format A5, intérieur organisé.',
+      price: '€219,00'
+    }
+  ],
+  chaussure: [
+    {
+      title: 'Sneakers Homme Classic - Nike Air Force 1',
+      link: 'https://www.nike.com/fr/t/chaussure-air-force-1-07-pour-7ZH74r/CW2288-111',
+      displayLink: 'www.nike.com',
+      image: 'https://static.nike.com/a/images/t_PDP_1280_v1/f_auto,q_auto:eco/hsbt7ij8iblylmzbbvkt/chaussure-air-force-1-07-pour-ZH74rf.png',
+      snippet: 'Baskets emblématiques en cuir blanc, semelle en caoutchouc coussin d\'air Nike Air.',
+      price: '€119,99'
+    },
+    {
+      title: 'Oxford Classic - Chaussures en cuir marron',
+      link: 'https://fr.meermin.com/products/101198-oak-antique-calf-e',
+      displayLink: 'fr.meermin.com',
+      image: 'https://cdn.shopify.com/s/files/1/0277/2511/9929/products/Meermin_Mallorca_101198_5_grande.jpg',
+      snippet: 'Chaussures Oxford classiques en cuir de veau marron, finition artisanale.',
+      price: '€195,00'
+    }
+  ],
+  // Catégorie par défaut pour tout autre type d'article
+  default: [
+    {
+      title: 'Article Mode Tendance - Collection Actuelle',
+      link: 'https://www.zalando.fr/mode/',
+      displayLink: 'www.zalando.fr',
+      image: 'https://img01.ztat.net/article/spp-media-p1/7df308f9c58a3f488652317f6786ee72/dd02f2e6e2a245b0a89c61a113d56a96.jpg',
+      snippet: 'Découvrez les dernières tendances mode, tous styles et toutes marques.',
+      price: '€49,95'
+    },
+    {
+      title: 'Vêtements et Accessoires de Qualité',
+      link: 'https://www2.hm.com/fr_fr/index.html',
+      displayLink: 'www2.hm.com',
+      image: 'https://lp2.hm.com/hmgoepprod?source=url[https://www2.hm.com/content/dam/TOOLBOX/PRE_SEASON/2022_pss/March_2022/Startpage_1_1_Trend.jpg]&scale=size[960]&sink=format[jpeg],quality[80]',
+      snippet: 'Mode femme, homme et enfant au meilleur prix, collections exclusives et nouvelles tendances.',
+      price: ''
+    }
+  ]
+};
 
 // Fonction pour analyser l'image avec Google Vision API directement via HTTPS
 async function analyzeImage(imagePath) {
@@ -104,10 +158,10 @@ async function analyzeImage(imagePath) {
         {
           image: { content: encodedImage },
           features: [
-            { type: 'LABEL_DETECTION', maxResults: 15 },
-            { type: 'IMAGE_PROPERTIES', maxResults: 5 },
-            { type: 'OBJECT_LOCALIZATION', maxResults: 10 },
-            { type: 'WEB_DETECTION', maxResults: 10 }
+            { type: 'LABEL_DETECTION', maxResults: 20 },
+            { type: 'IMAGE_PROPERTIES', maxResults: 8 },
+            { type: 'OBJECT_LOCALIZATION', maxResults: 15 },
+            { type: 'WEB_DETECTION', maxResults: 15 }
           ]
         }
       ]
@@ -127,37 +181,13 @@ async function analyzeImage(imagePath) {
     const result = response.data.responses[0];
     const { labelAnnotations, imagePropertiesAnnotation, localizedObjectAnnotations, webDetection } = result;
     
-    // Extraire les labels pertinents (vêtements, styles, etc.)
-    const clothingKeywords = [
-      'clothing', 'dress', 'shirt', 'pants', 'jacket', 'suit', 'coat', 
-      'shoe', 'fashion', 'style', 'outfit', 'skirt', 'blouse', 'jeans', 
-      'sweater', 'hoodie', 'tshirt', 't-shirt', 'hat', 'accessory', 'bag',
-      'scarf', 'tie', 'sock', 'glove', 'jewelry',
-      // Termes en français
-      'vêtement', 'robe', 'chemise', 'pantalon', 'veste', 'costume', 'manteau',
-      'chaussure', 'mode', 'style', 'tenue', 'jupe', 'chemisier', 'jean',
-      'pull', 'sweat', 'tee-shirt', 'chapeau', 'accessoire', 'sac',
-      'écharpe', 'cravate', 'chaussette', 'gant', 'bijou'
-    ];
-    
-    // Filtrer les labels pertinents
-    const clothingLabels = (labelAnnotations || []).filter(label => {
-      return clothingKeywords.some(keyword => 
-        label.description.toLowerCase().includes(keyword)) || 
-        label.score > 0.8;  // Inclure aussi les labels avec un score élevé
-    });
-    
-    // Si aucun label de vêtement n'est trouvé, ajouter au moins "dress" et "robe"
-    if (clothingLabels.length === 0) {
-      clothingLabels.push(
-        { description: "dress", score: 0.9 },
-        { description: "robe", score: 0.9 }
-      );
-    }
+    // Imprimer tous les labels pour débogage
+    console.log("Labels détectés:", labelAnnotations.map(label => label.description));
+    console.log("Objets détectés:", localizedObjectAnnotations.map(obj => obj.name));
     
     // Extraire les couleurs dominantes
     const colors = (imagePropertiesAnnotation?.dominantColors?.colors || [])
-      .slice(0, 5)
+      .slice(0, 8)
       .map(color => {
         const { red, green, blue } = color.color;
         return {
@@ -170,25 +200,21 @@ async function analyzeImage(imagePath) {
     // Si aucune couleur n'est extraite, ajouter une couleur par défaut
     if (colors.length === 0) {
       colors.push({
-        rgb: 'rgb(0, 0, 128)', // Bleu marine
+        rgb: 'rgb(128, 128, 128)', // Gris (neutre)
         score: 1.0,
         pixelFraction: 1.0
       });
     }
+    
+    // Utiliser notre service de détection avancée des couleurs
+    const analyzedColors = colorDetection.analyzeColors(colors);
+    const colorDescription = colorDetection.generateColorDescription(analyzedColors);
     
     // Extraire les objets détectés
     const objects = (localizedObjectAnnotations || []).map(obj => ({
       name: obj.name,
       confidence: obj.score
     }));
-    
-    // Si aucun objet n'est détecté, ajouter un objet par défaut
-    if (objects.length === 0) {
-      objects.push({
-        name: "Dress",
-        confidence: 0.9
-      });
-    }
     
     // Extraire les entités web pertinentes si disponibles
     const webEntities = (webDetection?.webEntities || [])
@@ -205,9 +231,11 @@ async function analyzeImage(imagePath) {
         url: image.url
       }));
     
+    // Résultats enrichis
     return {
-      labels: clothingLabels,
-      colors,
+      labels: labelAnnotations || [],
+      colors: analyzedColors,
+      colorDescription,
       objects,
       webEntities,
       similarImages
@@ -221,30 +249,31 @@ async function analyzeImage(imagePath) {
     
     // Même en cas d'erreur, renvoyer des résultats de base pour éviter un échec complet
     return {
-      labels: [{ description: "dress", score: 0.9 }, { description: "robe", score: 0.9 }],
-      colors: [{ rgb: 'rgb(0, 0, 128)', score: 1.0, pixelFraction: 1.0 }],
-      objects: [{ name: "Dress", confidence: 0.9 }],
-      webEntities: [{ description: "Robe de soirée", score: 0.9 }],
+      labels: [{ description: "clothing", score: 0.9 }, { description: "fashion", score: 0.9 }],
+      colors: [{ rgb: 'rgb(128, 128, 128)', score: 1.0, pixelFraction: 1.0 }],
+      colorDescription: "Principalement gris",
+      objects: [{ name: "Clothing", confidence: 0.9 }],
+      webEntities: [{ description: "Fashion", score: 0.9 }],
       similarImages: []
     };
   }
 }
 
 // Fonction pour rechercher des produits similaires en utilisant directement l'API Custom Search
-async function searchSimilarProducts(query) {
+async function searchSimilarProducts(query, itemType = 'default') {
   try {
-    console.log(`Recherche pour la requête: "${query}"`);
+    console.log(`Recherche pour la requête: "${query}" (type: ${itemType})`);
     
     const apiKey = process.env.GOOGLE_CUSTOM_SEARCH_API_KEY;
     const cx = process.env.GOOGLE_CUSTOM_SEARCH_ENGINE_ID;
     
     if (!apiKey || !cx) {
       console.warn('Les clés API Google Custom Search sont manquantes - utilisation des résultats de secours');
-      return fallbackResults;
+      return getFallbackResults(itemType);
     }
     
     // Ajouter des termes de shopping à la requête
-    const enhancedQuery = `${query} robe cape soirée acheter`;
+    const enhancedQuery = `${query} acheter prix`;
     
     const url = `https://www.googleapis.com/customsearch/v1?key=${apiKey}&cx=${cx}&q=${encodeURIComponent(enhancedQuery)}&num=10`;
     
@@ -254,7 +283,7 @@ async function searchSimilarProducts(query) {
     // Vérifier la réponse
     if (!response.data || !response.data.items || response.data.items.length === 0) {
       console.warn('Aucun résultat trouvé via Google Custom Search - utilisation des résultats de secours');
-      return fallbackResults;
+      return getFallbackResults(itemType);
     }
     
     console.log(`Nombre de résultats trouvés: ${response.data.items.length}`);
@@ -273,7 +302,7 @@ async function searchSimilarProducts(query) {
     // Si aucun résultat n'a d'image, utiliser les résultats de secours
     if (processedResults.every(item => !item.image || item.image === item.link)) {
       console.warn('Aucune image trouvée dans les résultats - utilisation des résultats de secours');
-      return fallbackResults;
+      return getFallbackResults(itemType);
     }
     
     return processedResults;
@@ -284,8 +313,16 @@ async function searchSimilarProducts(query) {
     }
     
     console.warn('Erreur lors de la recherche - utilisation des résultats de secours');
-    return fallbackResults;
+    return getFallbackResults(itemType);
   }
+}
+
+// Fonction pour obtenir les résultats de secours appropriés selon le type d'article
+function getFallbackResults(itemType) {
+  if (fallbackResults[itemType]) {
+    return fallbackResults[itemType];
+  }
+  return fallbackResults.default;
 }
 
 // Fonction utilitaire pour extraire un prix d'un texte
@@ -302,71 +339,52 @@ function extractPrice(title, snippet) {
   return null;
 }
 
-// Fonction pour construire une requête de recherche robuste
+// Nouvelle fonction pour construire une requête de recherche intelligente
 function buildSearchQuery(analysisResults) {
   try {
-    // Extraire les labels et objets pertinents
-    const labels = (analysisResults.labels || []).map(label => label.description);
-    const objects = (analysisResults.objects || []).map(obj => obj.name);
-    const webEntities = (analysisResults.webEntities || []).map(entity => entity.description);
+    console.log("Construction d'une requête de recherche optimisée...");
     
-    // Obtenir les couleurs dominantes en termes simples
-    const colorTerms = (analysisResults.colors || []).slice(0, 2).map(color => {
-      const { rgb } = color;
-      const [r, g, b] = rgb.match(/\d+/g).map(Number);
+    // Utiliser notre service de terminologie de mode pour extraire et catégoriser les termes
+    const allLabels = [
+      ...(analysisResults.labels || []),
+      ...(analysisResults.objects || []).map(obj => ({ description: obj.name, score: obj.confidence })),
+      ...(analysisResults.webEntities || [])
+    ];
+    
+    const extractedTerms = fashionTerms.extractFashionTerms(allLabels);
+    console.log("Termes de mode extraits:", extractedTerms);
+    
+    // Déterminer le type d'article principal (pour adapter les fallbacks plus tard)
+    let mainItemType = 'default';
+    if (extractedTerms.clothing.length > 0) {
+      const mainItem = extractedTerms.clothing[0].toLowerCase();
       
-      // Convertir RGB en termes de couleur simples
-      if (r > 200 && g > 200 && b > 200) return 'blanc';
-      if (r < 50 && g < 50 && b < 50) return 'noir';
-      if (r > 200 && g < 100 && b < 100) return 'rouge';
-      if (r < 100 && g > 150 && b < 100) return 'vert';
-      if (r < 100 && g < 100 && b > 200) return 'bleu';
-      if (r > 200 && g > 150 && b < 100) return 'jaune';
-      if (r > 200 && g < 150 && b > 200) return 'violet';
-      if (r < 150 && g > 150 && b > 150) return 'gris';
-      if (r > 230 && g > 100 && b < 100) return 'orange';
-      // Bleu marine (spécifique pour ce cas)
-      if (r < 50 && g < 50 && b > 80 && b < 150) return 'bleu marine';
-      return '';
-    }).filter(Boolean);
-    
-    // Ajouter "bleu marine" si ce n'est pas déjà dans les termes de couleur (pour correspondre à l'exemple)
-    if (!colorTerms.includes('bleu marine')) {
-      colorTerms.push('bleu marine');
+      if (mainItem.includes('dress') || mainItem.includes('robe')) {
+        mainItemType = 'robe';
+      } else if (mainItem.includes('bag') || mainItem.includes('sac') || mainItem.includes('sacoche') || mainItem.includes('purse') || mainItem.includes('handbag')) {
+        mainItemType = 'sac';
+      } else if (mainItem.includes('shoe') || mainItem.includes('chaussure') || mainItem.includes('sneaker') || mainItem.includes('boot')) {
+        mainItemType = 'chaussure';
+      }
     }
     
-    // Termes spécifiques pour ce type de vêtement (basés sur la photo d'exemple)
-    const specificTerms = ['robe cape', 'robe cocktail', 'robe soirée', 'robe élégante', 'midi dress'];
+    // Générer une requête optimisée avec notre service
+    const optimizedQuery = fashionTerms.generateOptimizedQuery(extractedTerms, analysisResults.colors);
     
-    // Termes de vêtements en français
-    const clothingTerms = ['vêtement', 'mode', 'tenue'];
+    console.log(`Type d'article principal détecté: ${mainItemType}`);
+    console.log(`Requête optimisée: ${optimizedQuery}`);
     
-    // Termes commerciaux
-    const commercialTerms = ['acheter', 'boutique', 'prix'];
-    
-    // Marques potentielles (pour l'exemple)
-    const brands = ['Ralph Lauren', 'Zara', 'H&M', 'ASOS', 'Mango'];
-    
-    // Combiner toutes les informations avec priorité aux termes spécifiques
-    const allTerms = [...specificTerms, ...labels, ...objects, ...webEntities, ...colorTerms, ...brands];
-    
-    // Sélectionner les termes les plus pertinents (sans doublons)
-    const uniqueTerms = [...new Set(allTerms)];
-    
-    // Prendre les 5 termes les plus significatifs
-    const mainTerms = uniqueTerms.slice(0, 5);
-    
-    // Ajouter des termes spécifiques pour assurer de meilleurs résultats
-    const searchTerms = [...mainTerms];
-    searchTerms.push('robe cape bleu marine');
-    if (clothingTerms.length > 0) searchTerms.push(clothingTerms[0]);
-    if (commercialTerms.length > 0) searchTerms.push(commercialTerms[0]);
-    
-    return searchTerms.join(' ');
+    return {
+      query: optimizedQuery,
+      itemType: mainItemType
+    };
   } catch (error) {
     console.error('Erreur lors de la construction de la requête:', error);
     // Requête de secours en cas d'erreur
-    return 'robe cape bleu marine soirée acheter';
+    return {
+      query: 'vêtement mode acheter',
+      itemType: 'default'
+    };
   }
 }
 
@@ -448,7 +466,7 @@ app.post('/api/analyze', upload.single('image'), async (req, res) => {
     const imagePath = req.file.path;
     console.log(`Image téléchargée: ${imagePath}`);
     
-    let analysisResults, searchQuery, similarProducts;
+    let analysisResults, searchQueryInfo, similarProducts;
     
     try {
       // Analyser l'image
@@ -457,26 +475,30 @@ app.post('/api/analyze', upload.single('image'), async (req, res) => {
       console.log('Analyse terminée avec succès');
       
       // Construire une requête à partir des résultats d'analyse
-      searchQuery = buildSearchQuery(analysisResults);
-      console.log(`Requête de recherche construite: "${searchQuery}"`);
+      searchQueryInfo = buildSearchQuery(analysisResults);
+      console.log(`Requête de recherche construite: "${searchQueryInfo.query}" (type: ${searchQueryInfo.itemType})`);
       
       // Rechercher des produits similaires
       console.log('Début de la recherche de produits similaires...');
-      similarProducts = await searchSimilarProducts(searchQuery);
+      similarProducts = await searchSimilarProducts(searchQueryInfo.query, searchQueryInfo.itemType);
       console.log(`${similarProducts.length} produits similaires trouvés`);
     } catch (error) {
       console.error('Erreur pendant le traitement:', error);
       
       // En cas d'erreur, utiliser des valeurs par défaut pour éviter un échec complet
       analysisResults = {
-        labels: [{ description: "dress", score: 0.9 }, { description: "robe", score: 0.9 }],
-        colors: [{ rgb: 'rgb(0, 0, 128)', score: 1.0, pixelFraction: 1.0 }],
-        objects: [{ name: "Dress", confidence: 0.9 }],
-        webEntities: [{ description: "Robe de soirée", score: 0.9 }],
+        labels: [{ description: "fashion", score: 0.9 }, { description: "vêtement", score: 0.9 }],
+        colors: [{ rgb: 'rgb(128, 128, 128)', score: 1.0, pixelFraction: 1.0 }],
+        colorDescription: "Gris",
+        objects: [{ name: "Clothing", confidence: 0.9 }],
+        webEntities: [{ description: "Fashion", score: 0.9 }],
         similarImages: []
       };
-      searchQuery = "robe cape bleu marine soirée acheter";
-      similarProducts = fallbackResults;
+      searchQueryInfo = {
+        query: "vêtement mode acheter",
+        itemType: "default"
+      };
+      similarProducts = fallbackResults.default;
       
       console.log('Utilisation des résultats de secours suite à une erreur');
     }
@@ -485,7 +507,8 @@ app.post('/api/analyze', upload.single('image'), async (req, res) => {
     res.json({
       success: true,
       analysis: analysisResults,
-      searchQuery,
+      searchQuery: searchQueryInfo.query,
+      itemType: searchQueryInfo.itemType,
       similarProducts
     });
     
@@ -500,14 +523,16 @@ app.post('/api/analyze', upload.single('image'), async (req, res) => {
     res.json({ 
       success: true,
       analysis: {
-        labels: [{ description: "dress", score: 0.9 }, { description: "robe", score: 0.9 }],
-        colors: [{ rgb: 'rgb(0, 0, 128)', score: 1.0, pixelFraction: 1.0 }],
-        objects: [{ name: "Dress", confidence: 0.9 }],
-        webEntities: [{ description: "Robe de soirée", score: 0.9 }],
+        labels: [{ description: "fashion", score: 0.9 }, { description: "vêtement", score: 0.9 }],
+        colors: [{ rgb: 'rgb(128, 128, 128)', score: 1.0, pixelFraction: 1.0 }],
+        colorDescription: "Gris",
+        objects: [{ name: "Clothing", confidence: 0.9 }],
+        webEntities: [{ description: "Fashion", score: 0.9 }],
         similarImages: []
       },
-      searchQuery: "robe cape bleu marine soirée acheter",
-      similarProducts: fallbackResults
+      searchQuery: "vêtement mode acheter",
+      itemType: "default",
+      similarProducts: fallbackResults.default
     });
     
     // Nettoyer le fichier en cas d'erreur
@@ -521,14 +546,14 @@ app.post('/api/analyze', upload.single('image'), async (req, res) => {
 
 // Route de test
 app.get('/api/test', (req, res) => {
-  res.json({ message: 'API fonctionnelle!', version: '1.3.0' });
+  res.json({ message: 'API fonctionnelle!', version: '1.4.0' });
 });
 
 // Démarrer le serveur
 app.listen(port, () => {
   console.log(`
 =======================================================
-  Fashion Finder API Server v1.3.0
+  Fashion Finder API Server v1.4.0
 =======================================================
   Serveur démarré sur le port ${port}
   
