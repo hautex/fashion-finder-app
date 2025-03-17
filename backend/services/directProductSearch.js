@@ -8,48 +8,192 @@ const axios = require('axios');
 
 // Structure des URLs de produits par domaine
 const PRODUCT_URL_PATTERNS = {
-  // Zalando
-  'zalando.fr': {
-    pattern: /\/([\w-]+)-([A-Z0-9]+).html$/i,
-    directUrlTemplate: 'https://www.zalando.fr/article/$2',
-    idPosition: 2
-  },
+  // Zalando - Plusieurs formats possibles
+  'zalando.fr': [
+    {
+      pattern: /\/([a-zA-Z0-9-]+)-([a-zA-Z0-9-]{10,})\./i,
+      directUrlTemplate: 'https://www.zalando.fr/article/$2',
+      idPosition: 2
+    },
+    {
+      pattern: /\/([a-zA-Z0-9-]+)\/([a-zA-Z0-9-]+)-([a-zA-Z0-9-]{10,})\./i,
+      directUrlTemplate: 'https://www.zalando.fr/article/$3',
+      idPosition: 3
+    },
+    {
+      pattern: /\/p\/([a-zA-Z0-9-]+)\/([a-zA-Z0-9-]+)-([a-zA-Z0-9-]{10,})/i,
+      directUrlTemplate: 'https://www.zalando.fr/article/$3',
+      idPosition: 3
+    }
+  ],
+  // Zalando BE
+  'zalando.be': [
+    {
+      pattern: /\/([a-zA-Z0-9-]+)-([a-zA-Z0-9-]{10,})\./i,
+      directUrlTemplate: 'https://www.zalando.be/fr/article/$2',
+      idPosition: 2
+    }
+  ],
   // H&M
-  'hm.com': {
-    pattern: /\/productpage\.([0-9]+)\.html/i,
-    directUrlTemplate: 'https://www2.hm.com/fr_fr/productpage.$1.html',
-    idPosition: 1
-  },
+  'hm.com': [
+    {
+      pattern: /\/productpage\.([0-9]+)\.html/i,
+      directUrlTemplate: 'https://www2.hm.com/fr_fr/productpage.$1.html',
+      idPosition: 1
+    },
+    {
+      pattern: /\/productpage\/([0-9]+)/i,
+      directUrlTemplate: 'https://www2.hm.com/fr_fr/productpage/$1.html',
+      idPosition: 1
+    }
+  ],
   // Asos
-  'asos.com': {
-    pattern: /\/([0-9]+)$/i,
-    directUrlTemplate: 'https://www.asos.com/fr/prd/$1',
-    idPosition: 1
-  },
+  'asos.com': [
+    {
+      pattern: /\/prd\/([0-9]+)/i,
+      directUrlTemplate: 'https://www.asos.com/fr/prd/$1',
+      idPosition: 1
+    },
+    {
+      pattern: /\/([0-9]{8,})$/i,
+      directUrlTemplate: 'https://www.asos.com/fr/prd/$1',
+      idPosition: 1
+    }
+  ],
   // La Redoute
-  'laredoute.fr': {
-    pattern: /\/([\w-]+)\.html/i,
-    directUrlTemplate: 'https://www.laredoute.fr/ppdp/$1.html',
-    idPosition: 1
-  },
+  'laredoute.fr': [
+    {
+      pattern: /\/ppdp\/([0-9]+)\.html/i,
+      directUrlTemplate: 'https://www.laredoute.fr/ppdp/$1.html',
+      idPosition: 1
+    },
+    {
+      pattern: /prod-([0-9]+)\.aspx/i,
+      directUrlTemplate: 'https://www.laredoute.fr/ppdp/$1.html',
+      idPosition: 1
+    }
+  ],
   // Zara
-  'zara.com': {
-    pattern: /\/([0-9]+)\.html/i,
-    directUrlTemplate: 'https://www.zara.com/fr/fr/article/$1.html',
-    idPosition: 1
-  },
+  'zara.com': [
+    {
+      pattern: /\/p\/([0-9]+)\/([0-9]+)/i,
+      directUrlTemplate: 'https://www.zara.com/fr/fr/article/$1.html',
+      idPosition: 1
+    },
+    {
+      pattern: /\/article\/([0-9]+)\.html/i,
+      directUrlTemplate: 'https://www.zara.com/fr/fr/article/$1.html',
+      idPosition: 1
+    }
+  ],
   // Sarenza
-  'sarenza.com': {
-    pattern: /\/([^\/]+)\/([^\/]+)-s([0-9]+)\.aspx/i,
-    directUrlTemplate: 'https://www.sarenza.com/produit/$3',
-    idPosition: 3
-  },
+  'sarenza.com': [
+    {
+      pattern: /\/s([0-9]+)\.aspx/i,
+      directUrlTemplate: 'https://www.sarenza.com/produit/$1',
+      idPosition: 1
+    },
+    {
+      pattern: /\/produit\/([0-9]+)/i,
+      directUrlTemplate: 'https://www.sarenza.com/produit/$1',
+      idPosition: 1
+    }
+  ],
   // Spartoo
-  'spartoo.com': {
-    pattern: /\/([0-9]+)-([^\/]+)\.php/i,
-    directUrlTemplate: 'https://www.spartoo.com/article/$1',
-    idPosition: 1
-  }
+  'spartoo.com': [
+    {
+      pattern: /\/([0-9]+)-([^\/]+)\.php/i,
+      directUrlTemplate: 'https://www.spartoo.com/article/$1',
+      idPosition: 1
+    }
+  ],
+  // Mango
+  'mango.com': [
+    {
+      pattern: /\/p\/([0-9]+)$/i,
+      directUrlTemplate: 'https://shop.mango.com/fr/femme/article/$1',
+      idPosition: 1
+    }
+  ],
+  // CelioStore
+  'celio.com': [
+    {
+      pattern: /\/p\/([^\/]+)\_([0-9]+)\.html/i,
+      directUrlTemplate: 'https://www.celio.com/p/$1_$2.html',
+      idPosition: 0,
+      fullMatch: true
+    }
+  ],
+  // Bershka
+  'bershka.com': [
+    {
+      pattern: /\/product\/([0-9]+)\/([0-9]+)/i,
+      directUrlTemplate: 'https://www.bershka.com/fr/product/$1/$2.html',
+      idPosition: 0,
+      fullMatch: true
+    }
+  ],
+  // Galeries Lafayette
+  'galerieslafayette.com': [
+    {
+      pattern: /\/p\/([^\/]+)\/([0-9]+)/i,
+      directUrlTemplate: 'https://www.galerieslafayette.com/p/$1/$2',
+      idPosition: 0,
+      fullMatch: true
+    }
+  ],
+  // Jules
+  'jules.com': [
+    {
+      pattern: /\/p\/([^\/]+)-([0-9]+)\.html/i,
+      directUrlTemplate: 'https://www.jules.com/fr-fr/p/$1-$2.html',
+      idPosition: 0,
+      fullMatch: true
+    }
+  ],
+  // Timberland
+  'timberland.fr': [
+    {
+      pattern: /\/shop\/fr\/tbl-fr\/([^\/]+)$/i,
+      directUrlTemplate: 'https://www.timberland.fr/shop/fr/tbl-fr/$1',
+      idPosition: 1
+    }
+  ],
+  // Courir
+  'courir.com': [
+    {
+      pattern: /\/p\/([^\/]+)\.html/i,
+      directUrlTemplate: 'https://www.courir.com/fr/p/$1.html',
+      idPosition: 1
+    }
+  ],
+  // Nike
+  'nike.com': [
+    {
+      pattern: /\/t\/([^\/]+)\/([^\/]+)/i,
+      directUrlTemplate: 'https://www.nike.com/fr/t/$1/$2',
+      idPosition: 0,
+      fullMatch: true
+    }
+  ],
+  // Adidas
+  'adidas.fr': [
+    {
+      pattern: /\/([^\/]+)\/([A-Z0-9]{6})\.html/i,
+      directUrlTemplate: 'https://www.adidas.fr/fr/$1/$2.html',
+      idPosition: 0,
+      fullMatch: true
+    }
+  ],
+  // Uniqlo
+  'uniqlo.com': [
+    {
+      pattern: /\/products\/([^\/]+)\/([0-9]+)/i,
+      directUrlTemplate: 'https://www.uniqlo.com/fr/fr/products/$1/$2',
+      idPosition: 0,
+      fullMatch: true
+    }
+  ]
 };
 
 /**
@@ -64,14 +208,27 @@ function extractDirectProductUrl(url) {
     
     // Vérifier si nous avons un pattern pour ce domaine
     if (PRODUCT_URL_PATTERNS[domain]) {
-      const { pattern, directUrlTemplate, idPosition } = PRODUCT_URL_PATTERNS[domain];
+      const patterns = Array.isArray(PRODUCT_URL_PATTERNS[domain]) 
+        ? PRODUCT_URL_PATTERNS[domain] 
+        : [PRODUCT_URL_PATTERNS[domain]];
       
-      // Tester si l'URL correspond au pattern
-      const match = url.match(pattern);
-      
-      if (match && match[idPosition]) {
-        // Remplacer les placeholders dans le template
-        return directUrlTemplate.replace(`$${idPosition}`, match[idPosition]);
+      // Tester tous les patterns pour ce domaine
+      for (const { pattern, directUrlTemplate, idPosition, fullMatch } of patterns) {
+        const match = url.match(pattern);
+        
+        if (match) {
+          if (fullMatch) {
+            // Cas spécial où on a besoin de plusieurs groupes
+            let resultUrl = directUrlTemplate;
+            for (let i = 1; i < match.length; i++) {
+              resultUrl = resultUrl.replace(`$${i}`, match[i]);
+            }
+            return resultUrl;
+          } else if (match[idPosition]) {
+            // Cas standard avec un seul ID à remplacer
+            return directUrlTemplate.replace(`$${idPosition}`, match[idPosition]);
+          }
+        }
       }
     }
     
@@ -114,17 +271,33 @@ function isProductUrl(url) {
     /\/p\//, // Format commun pour les pages produits
     /\/product\//, // Format commun pour les pages produits
     /\/article\//, // Format commun pour les pages produits
+    /\/produit\//, // Format commun pour les pages produits
+    /\/item\//, // Format commun pour les pages produits
+    /ppdp/, // Format La Redoute
     /[0-9]{5,}/, // ID produit numérique long
+    /[A-Z0-9]{6,}\.html$/, // Format Adidas/Nike
     /\.html$/ // Extension commune pour les pages produits
   ];
   
   // Caractéristiques des pages à éviter
   const nonProductUrlPatterns = [
-    /\/search\//, // Pages de recherche
-    /\/category\//, // Pages de catégorie
-    /\/collection\//, // Pages de collection
-    /\/(homme|femme|enfant)\//, // Pages de catégorie par genre
-    /\/(nouveautes|soldes)\//, // Pages de nouveautés ou soldes
+    /\/search\//i, // Pages de recherche
+    /\/recherche\//i, // Pages de recherche en français
+    /\/category\//i, // Pages de catégorie
+    /\/categorie\//i, // Pages de catégorie en français
+    /\/collection\//i, // Pages de collection
+    /\/selections\//i, // Pages de sélections
+    /\/(homme|femme|enfant)\/$/i, // Pages de catégorie par genre (fin d'URL)
+    /\/(nouveautes|soldes|promotions)\/$/i, // Pages de nouveautés ou soldes (fin d'URL)
+    /\/brand\//i, // Pages de marque
+    /\/marque\//i, // Pages de marque en français
+    /\/accueil\//i, // Pages d'accueil
+    /\/home\//i, // Pages d'accueil en anglais
+    /\/panier\//i, // Pages de panier
+    /\/cart\//i, // Pages de panier en anglais
+    /\/wishlist\//i, // Pages de liste de souhaits
+    /\/compte\//i, // Pages de compte
+    /\/account\//i // Pages de compte en anglais
   ];
   
   // Vérifier d'abord si c'est une URL à éviter
@@ -141,8 +314,42 @@ function isProductUrl(url) {
     }
   }
   
+  // Vérifier si l'URL correspond à un pattern spécifique de produit
+  const domain = extractDomain(url);
+  if (PRODUCT_URL_PATTERNS[domain]) {
+    const patterns = Array.isArray(PRODUCT_URL_PATTERNS[domain]) 
+      ? PRODUCT_URL_PATTERNS[domain] 
+      : [PRODUCT_URL_PATTERNS[domain]];
+    
+    for (const { pattern } of patterns) {
+      if (pattern.test(url)) {
+        return true;
+      }
+    }
+  }
+  
   // Par défaut, considérer comme non-produit pour être prudent
   return false;
+}
+
+/**
+ * Vérifie l'URL d'un site e-commerce via une requête HEAD 
+ * pour s'assurer qu'elle est accessible
+ * @param {String} url - URL à vérifier
+ * @returns {Promise<Boolean>} - True si l'URL est accessible
+ */
+async function verifyProductUrl(url) {
+  try {
+    const response = await axios.head(url, { 
+      timeout: 3000,
+      validateStatus: status => status < 400, // Accepter les redirections
+      maxRedirects: 5
+    });
+    return response.status >= 200 && response.status < 400;
+  } catch (error) {
+    console.warn(`URL inaccessible: ${url}`, error.message);
+    return false;
+  }
 }
 
 /**
@@ -153,25 +360,19 @@ function isProductUrl(url) {
 async function enrichProductData(url) {
   try {
     // Créer un objet de données enrichies par défaut
+    const directUrl = extractDirectProductUrl(url);
     const enrichedData = {
-      directUrl: extractDirectProductUrl(url),
+      directUrl: directUrl,
       originalUrl: url,
+      isAccessible: false,
       scrapedTitle: null,
       scrapedImage: null,
       scrapedPrice: null,
       scrapedDescription: null
     };
     
-    // Tenter de faire une requête HEAD pour vérifier si l'URL est accessible
-    const headResponse = await axios.head(url, { timeout: 3000 });
-    
-    // Si l'URL est inaccessible, retourner les données par défaut
-    if (headResponse.status !== 200) {
-      return enrichedData;
-    }
-    
-    // Ici on pourrait ajouter du scraping pour enrichir les données
-    // mais cela nécessiterait des packages comme cheerio et plus de temps de traitement
+    // Vérifier si l'URL directe est accessible
+    enrichedData.isAccessible = await verifyProductUrl(directUrl);
     
     return enrichedData;
   } catch (error) {
@@ -179,6 +380,7 @@ async function enrichProductData(url) {
     return {
       directUrl: extractDirectProductUrl(url),
       originalUrl: url,
+      isAccessible: false,
       scrapedTitle: null,
       scrapedImage: null,
       scrapedPrice: null,
@@ -190,5 +392,6 @@ async function enrichProductData(url) {
 module.exports = {
   extractDirectProductUrl,
   isProductUrl,
-  enrichProductData
+  enrichProductData,
+  verifyProductUrl
 };
