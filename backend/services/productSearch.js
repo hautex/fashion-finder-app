@@ -1,6 +1,7 @@
 /**
  * Service de recherche avancée de produits
  * Utilise des sources spécifiques pour les produits de mode
+ * avec un focus sur les liens directs vers les produits comme Google Lens
  */
 
 const axios = require('axios');
@@ -10,16 +11,18 @@ const directProductSearch = require('./directProductSearch');
 const TRUSTED_FASHION_SITES = {
   // Sites pour les vêtements
   clothing: [
-    'zalando.fr', 'laredoute.fr', 'asos.fr', 'galerieslafayette.com', 
+    'zalando.fr', 'zalando.be', 'laredoute.fr', 'asos.fr', 'galerieslafayette.com', 
     'zara.com', 'hm.com', 'mango.com', 'uniqlo.com', 'celio.com',
-    'jules.com', 'bershka.com', 'nastygal.com', 'ralphlauren.fr'
+    'jules.com', 'bershka.com', 'nastygal.com', 'ralphlauren.fr',
+    'lacoste.com', 'monoprix.fr', 'kiabi.com', 'promod.fr'
   ],
   
   // Sites pour les chaussures
   shoes: [
     'sarenza.com', 'spartoo.com', 'zalando.fr', 'jdsports.fr',
     'courir.com', 'nike.com', 'adidas.fr', 'puma.com', 'clarks.fr',
-    'footlocker.fr', 'timberland.fr', 'geox.com', 'drmartens.com'
+    'footlocker.fr', 'timberland.fr', 'geox.com', 'drmartens.com',
+    'scholl-shoes.com', 'bocage.fr', 'andre.fr', 'minelli.fr'
   ],
   
   // Sites pour les sacs
@@ -27,7 +30,8 @@ const TRUSTED_FASHION_SITES = {
     'zalando.fr', 'galerieslafayette.com', 'louisvuitton.com', 
     'michaelkors.fr', 'longchamp.com', 'eastpak.com', 'kipling.com',
     'samsonite.fr', 'lacoste.com', 'fossil.com', 'desigual.com',
-    'lestropeziennes.fr', 'lancaster.fr'
+    'lestropeziennes.fr', 'lancaster.fr', 'printemps.com',
+    'sezane.com', 'lancel.com'
   ]
 };
 
@@ -182,11 +186,11 @@ const FALLBACK_PRODUCTS = {
 };
 
 /**
- * Recherche avancée de produits de mode similaires
+ * Recherche avancée de produits de mode similaires en privilégiant les liens directs vers les produits
  * @param {String} query - Requête de recherche
  * @param {String} itemType - Type d'article (sac, chaussure, etc.)
  * @param {String} color - Couleur principale de l'article
- * @returns {Array} - Produits similaires trouvés
+ * @returns {Array} - Produits similaires trouvés avec liens directs
  */
 async function searchFashionProducts(query, itemType = 'default', color = '') {
   try {
@@ -228,7 +232,7 @@ async function searchFashionProducts(query, itemType = 'default', color = '') {
       key: apiKey,
       cx: cx,
       q: enhancedQuery,
-      num: 10, // Demander plus pour pouvoir filtrer
+      num: 15, // Demander plus de résultats pour avoir plus de chances de trouver des liens directs
       lr: 'lang_fr', // Limiter aux résultats en français
       safe: 'active', // Filtre SafeSearch
       searchType: 'shopping', // Orienter vers les résultats de shopping si possible
@@ -250,8 +254,8 @@ async function searchFashionProducts(query, itemType = 'default', color = '') {
     
     console.log(`Nombre de résultats bruts trouvés: ${response.data.items.length}`);
     
-    // Traitement et filtrage des résultats - AVEC EXTRACTION D'URL DIRECTE
-    let processedResults = response.data.items.map(item => {
+    // Première étape : traitement initial des résultats
+    const initialResults = response.data.items.map(item => {
       // Vérifier si c'est une URL de produit
       const isProduct = directProductSearch.isProductUrl(item.link);
       
@@ -263,7 +267,7 @@ async function searchFashionProducts(query, itemType = 'default', color = '') {
       return {
         title: item.title || 'Produit sans titre',
         link: item.link || '',
-        directLink: directLink, // Nouvelle propriété avec lien direct
+        directLink: directLink, // URL directe vers le produit
         displayLink: item.displayLink || '',
         image: item.pagemap?.cse_image?.[0]?.src || 
                item.pagemap?.cse_thumbnail?.[0]?.src || 
@@ -275,55 +279,80 @@ async function searchFashionProducts(query, itemType = 'default', color = '') {
     });
     
     // Filtrer les résultats sans image ou avec des liens invalides
-    processedResults = processedResults.filter(item => 
+    let filteredResults = initialResults.filter(item => 
       item.image && item.image !== item.link && 
       !item.link.includes('recherche') && // Éviter les pages de recherche
-      !item.link.includes('search')
+      !item.link.includes('search') &&
+      !item.link.includes('/fr/') // Éviter les pages de catégories
     );
     
-    // Filtrer pour favoriser les liens directs vers les produits
-    if (processedResults.some(item => item.isDirectProductLink)) {
-      // Si on a des liens directs, on les privilégie
-      const directProducts = processedResults.filter(item => item.isDirectProductLink);
-      if (directProducts.length >= 3) {
-        processedResults = directProducts;
-      }
+    console.log(`Après filtrage de base: ${filteredResults.length} résultats`);
+    
+    // Si on a peu de résultats, revenir aux résultats initiaux
+    if (filteredResults.length < 5) {
+      console.log('Trop peu de résultats après filtrage, retour aux résultats initiaux');
+      filteredResults = initialResults;
     }
     
-    // Essayer d'enrichir l'information de prix si manquante
-    processedResults = processedResults.map(item => {
-      if (!item.price) {
-        // Essayer d'extraire un prix du titre ou de la description
-        const extractedPrice = extractPrice(item.title, item.snippet);
-        if (extractedPrice) {
-          return { ...item, price: extractedPrice };
-        }
-        // Sinon, attribuer un prix plausible basé sur la catégorie
-        return { ...item, price: getPlausiblePrice(itemType) };
-      }
-      return item;
+    // Filtrer pour favoriser les liens directs vers les produits
+    const directProductResults = filteredResults.filter(item => item.isDirectProductLink);
+    
+    // Si on a suffisamment de résultats directs, les privilégier
+    if (directProductResults.length >= 5) {
+      console.log(`Utilisation des ${directProductResults.length} liens directs vers des produits`);
+      filteredResults = directProductResults;
+    } else {
+      console.log(`Seulement ${directProductResults.length} liens directs trouvés, on garde une partie des résultats indirects`);
+    }
+    
+    // Vérification et enrichissement des liens en parallèle (avec limitation à 10 pour éviter de surcharger)
+    const resultsToProcess = filteredResults.slice(0, 10);
+    console.log(`Vérification et enrichissement de ${resultsToProcess.length} résultats`);
+    
+    // Créer un tableau de promesses pour vérifier les liens en parallèle
+    const enrichmentPromises = resultsToProcess.map(item => 
+      enrichProductData(item)
+    );
+    
+    // Attendre que toutes les vérifications soient terminées
+    const enrichedResults = await Promise.all(enrichmentPromises);
+    
+    // Trier les résultats : d'abord les liens directs accessibles, puis les autres
+    const sortedResults = enrichedResults.sort((a, b) => {
+      // Priorité 1: Liens accessibles
+      if (a.isAccessible && !b.isAccessible) return -1;
+      if (!a.isAccessible && b.isAccessible) return 1;
+      
+      // Priorité 2: Liens directs vers des produits
+      if (a.isDirectProductLink && !b.isDirectProductLink) return -1;
+      if (!a.isDirectProductLink && b.isDirectProductLink) return 1;
+      
+      // Priorité 3: Présence d'un prix
+      if (a.price && !b.price) return -1;
+      if (!a.price && b.price) return 1;
+      
+      return 0;
     });
     
+    // Prendre les 5 meilleurs résultats
+    let finalResults = sortedResults.slice(0, 5);
+    
     // S'assurer d'avoir exactement 5 résultats
-    if (processedResults.length < 5) {
+    if (finalResults.length < 5) {
       console.log('Moins de 5 résultats pertinents trouvés, complétant avec des résultats de secours');
       const fallbacks = getFallbackResults(itemType, color);
       
       // Ajouter des fallbacks jusqu'à avoir 5 résultats
-      for (let i = 0; i < fallbacks.length && processedResults.length < 5; i++) {
+      for (let i = 0; i < fallbacks.length && finalResults.length < 5; i++) {
         // Éviter les doublons basés sur le titre
-        if (!processedResults.some(item => item.title === fallbacks[i].title)) {
-          processedResults.push(fallbacks[i]);
+        if (!finalResults.some(item => item.title === fallbacks[i].title)) {
+          finalResults.push(fallbacks[i]);
         }
       }
     }
-    else if (processedResults.length > 5) {
-      // Limiter à 5 résultats
-      processedResults = processedResults.slice(0, 5);
-    }
     
-    console.log(`Retournant ${processedResults.length} résultats filtrés et optimisés`);
-    return processedResults;
+    console.log(`Retournant ${finalResults.length} résultats finaux optimisés`);
+    return finalResults;
   } catch (error) {
     console.error('Erreur détaillée lors de la recherche de produits:', error);
     if (error.response) {
@@ -332,6 +361,140 @@ async function searchFashionProducts(query, itemType = 'default', color = '') {
     
     console.warn('Erreur lors de la recherche - utilisation des résultats de secours');
     return getFallbackResults(itemType, color);
+  }
+}
+
+/**
+ * Enrichit un résultat de produit avec des métadonnées supplémentaires
+ * et vérifie l'accessibilité des liens
+ * @param {Object} productResult - Résultat de produit à enrichir
+ * @returns {Object} - Produit enrichi avec métadonnées
+ */
+async function enrichProductData(productResult) {
+  try {
+    // Vérifier si le lien direct est accessible
+    let isAccessible = false;
+    
+    // Ne vérifier que si le lien est différent de l'original
+    if (productResult.directLink !== productResult.link) {
+      try {
+        isAccessible = await directProductSearch.verifyProductUrl(productResult.directLink);
+      } catch (error) {
+        console.warn(`Erreur lors de la vérification de l'URL ${productResult.directLink}:`, error.message);
+      }
+    }
+    
+    // Si le lien direct n'est pas accessible, essayer le lien original
+    if (!isAccessible && productResult.link) {
+      try {
+        isAccessible = await directProductSearch.verifyProductUrl(productResult.link);
+        if (isAccessible) {
+          // Si le lien original est accessible mais pas le direct, utiliser l'original
+          productResult.directLink = productResult.link;
+        }
+      } catch (error) {
+        console.warn(`Erreur lors de la vérification de l'URL originale ${productResult.link}:`, error.message);
+      }
+    }
+    
+    // Si toujours pas accessible, essayer d'extraire un autre lien direct
+    if (!isAccessible) {
+      // Réessayer avec d'autres patterns si possible
+      const alternativeLink = tryAlternativeLinks(productResult.link);
+      if (alternativeLink && alternativeLink !== productResult.directLink) {
+        try {
+          isAccessible = await directProductSearch.verifyProductUrl(alternativeLink);
+          if (isAccessible) {
+            productResult.directLink = alternativeLink;
+          }
+        } catch (error) {
+          console.warn(`Erreur lors de la vérification de l'URL alternative ${alternativeLink}:`, error.message);
+        }
+      }
+    }
+    
+    // Enrichir avec des informations de prix si manquantes
+    if (!productResult.price) {
+      productResult.price = getPlausiblePrice(extractProductType(productResult.title, productResult.snippet));
+    }
+    
+    // Ajouter les informations sur l'accessibilité et si c'est un lien direct
+    return {
+      ...productResult,
+      isAccessible
+    };
+  } catch (error) {
+    console.error(`Erreur lors de l'enrichissement des données:`, error.message);
+    return {
+      ...productResult,
+      isAccessible: false
+    };
+  }
+}
+
+/**
+ * Tente de trouver un lien alternatif pour un produit
+ * en manipulant l'URL originale
+ * @param {String} originalUrl - URL originale
+ * @returns {String} - URL alternative ou l'originale si aucune alternative
+ */
+function tryAlternativeLinks(originalUrl) {
+  try {
+    // Extraire le domaine
+    const domain = extractDomain(originalUrl);
+    
+    // Quelques règles spécifiques pour des sites
+    if (domain === 'zalando.fr' || domain === 'zalando.be') {
+      // Essayer de construire une URL directe à partir du chemin
+      const match = originalUrl.match(/\/([a-zA-Z0-9-]+)-([a-zA-Z0-9-]+)$/);
+      if (match && match[2]) {
+        return `https://www.${domain}/article/${match[2]}`;
+      }
+    }
+    
+    // Asos
+    if (domain === 'asos.com') {
+      // Essayer d'extraire l'ID du produit du chemin
+      const match = originalUrl.match(/\/([0-9]+)$/);
+      if (match && match[1]) {
+        return `https://www.asos.com/fr/prd/${match[1]}`;
+      }
+    }
+    
+    // H&M
+    if (domain === 'hm.com') {
+      // Essayer d'extraire l'ID du produit
+      const match = originalUrl.match(/([0-9]{7,})/);
+      if (match && match[1]) {
+        return `https://www2.hm.com/fr_fr/productpage.${match[1]}.html`;
+      }
+    }
+    
+    // Par défaut, retourner l'URL originale
+    return originalUrl;
+  } catch (error) {
+    console.error('Erreur lors de la recherche d\'URL alternative:', error);
+    return originalUrl;
+  }
+}
+
+/**
+ * Extrait le domaine d'une URL
+ * @param {String} url - URL complète
+ * @returns {String} - Nom de domaine (ex: zalando.fr)
+ */
+function extractDomain(url) {
+  try {
+    // Utiliser URL API pour extraire le hostname
+    const urlObj = new URL(url);
+    const hostname = urlObj.hostname;
+    
+    // Supprimer le "www." si présent
+    return hostname.replace(/^www\./, '');
+  } catch (error) {
+    // En cas d'erreur de parsing, essayer une méthode alternative
+    const domainMatch = url.match(/^(?:https?:\/\/)?(?:www\.)?([^\/]+)/i);
+    return domainMatch ? domainMatch[1] : '';
   }
 }
 
@@ -373,10 +536,10 @@ function extractPrice(title, snippet) {
   
   // Recherche plus robuste de prix en différentes devises
   // Capture €, £, $, suivi d'un espace optionnel, puis d'un nombre avec décimales optionnelles
-  const priceRegexEUR = /(€|EUR|euros?)\s?(\d+(?:[.,]\d{2})?)/i;
-  const priceRegexUSD = /(\$|USD|dollars?)\s?(\d+(?:[.,]\d{2})?)/i;
-  const priceRegexGBP = /(£|GBP|livres?)\s?(\d+(?:[.,]\d{2})?)/i;
-  const priceRegexGeneric = /(\d+(?:[.,]\d{2})?)\s?(€|EUR|USD|\$|£|GBP)/i;
+  const priceRegexEUR = /(€|EUR|euros?)[\s\.]?(\d+(?:[.,]\d{2})?)/i;
+  const priceRegexUSD = /(\$|USD|dollars?)[\s\.]?(\d+(?:[.,]\d{2})?)/i;
+  const priceRegexGBP = /(£|GBP|livres?)[\s\.]?(\d+(?:[.,]\d{2})?)/i;
+  const priceRegexGeneric = /(\d+(?:[.,]\d{2})?)[\s\.]?(€|EUR|USD|\$|£|GBP)/i;
   const priceRegexSimple = /(\d+(?:[.,]\d{2})?)(?:\s?€)/i;
   
   // Essayer tous les formats de prix
@@ -406,6 +569,51 @@ function extractPrice(title, snippet) {
   }
   
   return null;
+}
+
+/**
+ * Extraire le type de produit à partir du titre et de la description
+ * @param {String} title - Titre du produit
+ * @param {String} snippet - Description du produit
+ * @returns {String} - Type de produit extrait
+ */
+function extractProductType(title, snippet) {
+  const combined = `${title || ''} ${snippet || ''}`.toLowerCase();
+  
+  // Chaussures
+  if (combined.includes('chaussure') || combined.includes('shoe') || 
+      combined.includes('boot') || combined.includes('bottine') ||
+      combined.includes('basket') || combined.includes('sneaker')) {
+    return 'chaussure';
+  }
+  
+  // Sacs
+  if (combined.includes('sac') || combined.includes('bag') || 
+      combined.includes('sacoche') || combined.includes('handbag') ||
+      combined.includes('bandoulière')) {
+    return 'sac';
+  }
+  
+  // Vestes
+  if (combined.includes('veste') || combined.includes('jacket') || 
+      combined.includes('manteau') || combined.includes('coat') ||
+      combined.includes('blouson')) {
+    return 'veste';
+  }
+  
+  // Pantalons
+  if (combined.includes('pantalon') || combined.includes('pants') || 
+      combined.includes('jeans') || combined.includes('trousers')) {
+    return 'pantalon';
+  }
+  
+  // Robes
+  if (combined.includes('robe') || combined.includes('dress')) {
+    return 'robe';
+  }
+  
+  // Par défaut
+  return 'default';
 }
 
 /**
@@ -464,5 +672,6 @@ function getPlausiblePrice(itemType) {
 module.exports = {
   searchFashionProducts,
   getFallbackResults,
-  extractPrice
+  extractPrice,
+  enrichProductData
 };
