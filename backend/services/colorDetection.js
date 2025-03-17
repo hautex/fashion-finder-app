@@ -1,211 +1,526 @@
 /**
- * Service de détection des couleurs amélioré
- * Permet une analyse plus fine et précise des couleurs détectées par Google Vision API
+ * Service amélioré de détection de couleurs
+ * Fournit une analyse précise des couleurs avec noms en français
  */
 
-// Table de correspondance RGB vers noms de couleurs courants en français et en anglais
-const COLOR_NAMES = {
-  // Noir, gris, blanc
-  'black': { fr: 'Noir', ranges: [[0, 30], [0, 30], [0, 30]] },
-  'darkgray': { fr: 'Gris foncé', ranges: [[30, 70], [30, 70], [30, 70]] },
-  'gray': { fr: 'Gris', ranges: [[70, 130], [70, 130], [70, 130]] },
-  'lightgray': { fr: 'Gris clair', ranges: [[130, 200], [130, 200], [130, 200]] },
-  'white': { fr: 'Blanc', ranges: [[200, 255], [200, 255], [200, 255]] },
+// Correspondance RGB vers noms de couleurs en français et anglais
+const COLOR_NAMES = [
+  // Tons de marron
+  { 
+    range: [[80, 40, 0], [165, 100, 40]], 
+    nameFr: 'Marron', 
+    nameEn: 'Brown',
+    isDark: true,
+    textColor: '#FFFFFF'
+  },
+  { 
+    range: [[150, 90, 40], [180, 130, 80]], 
+    nameFr: 'Marron clair', 
+    nameEn: 'Light brown',
+    isDark: false,
+    textColor: '#000000'
+  },
+  { 
+    range: [[60, 30, 0], [100, 60, 30]], 
+    nameFr: 'Marron foncé', 
+    nameEn: 'Dark brown',
+    isDark: true,
+    textColor: '#FFFFFF'
+  },
+  { 
+    range: [[170, 120, 70], [210, 180, 130]], 
+    nameFr: 'Beige', 
+    nameEn: 'Beige',
+    isDark: false,
+    textColor: '#000000'
+  },
+  { 
+    range: [[210, 180, 140], [240, 220, 180]], 
+    nameFr: 'Beige clair', 
+    nameEn: 'Light beige',
+    isDark: false,
+    textColor: '#000000'
+  },
+  { 
+    range: [[160, 110, 60], [190, 140, 90]], 
+    nameFr: 'Tan', 
+    nameEn: 'Tan',
+    isDark: false,
+    textColor: '#000000'
+  },
+  { 
+    range: [[90, 50, 20], [130, 80, 40]], 
+    nameFr: 'Chocolat', 
+    nameEn: 'Chocolate',
+    isDark: true,
+    textColor: '#FFFFFF'
+  },
+  { 
+    range: [[180, 130, 80], [215, 175, 130]], 
+    nameFr: 'Camel', 
+    nameEn: 'Camel',
+    isDark: false,
+    textColor: '#000000'
+  },
   
-  // Bleus
-  'navy': { fr: 'Bleu marine', ranges: [[0, 50], [0, 50], [50, 100]] },
-  'darkblue': { fr: 'Bleu foncé', ranges: [[0, 30], [0, 50], [100, 170]] },
-  'blue': { fr: 'Bleu', ranges: [[0, 50], [50, 150], [170, 255]] },
-  'lightblue': { fr: 'Bleu clair', ranges: [[50, 130], [130, 200], [200, 255]] },
-  'turquoise': { fr: 'Turquoise', ranges: [[0, 100], [150, 255], [170, 255]] },
+  // Tons de noir/gris/blanc
+  { 
+    range: [[0, 0, 0], [35, 35, 35]], 
+    nameFr: 'Noir', 
+    nameEn: 'Black',
+    isDark: true,
+    textColor: '#FFFFFF'
+  },
+  { 
+    range: [[36, 36, 36], [85, 85, 85]], 
+    nameFr: 'Gris foncé', 
+    nameEn: 'Dark gray',
+    isDark: true,
+    textColor: '#FFFFFF'
+  },
+  { 
+    range: [[86, 86, 86], [170, 170, 170]], 
+    nameFr: 'Gris', 
+    nameEn: 'Gray',
+    isDark: true,
+    textColor: '#FFFFFF'
+  },
+  { 
+    range: [[171, 171, 171], [235, 235, 235]], 
+    nameFr: 'Gris clair', 
+    nameEn: 'Light gray',
+    isDark: false,
+    textColor: '#000000'
+  },
+  { 
+    range: [[236, 236, 236], [255, 255, 255]], 
+    nameFr: 'Blanc', 
+    nameEn: 'White',
+    isDark: false,
+    textColor: '#000000'
+  },
   
-  // Verts
-  'darkgreen': { fr: 'Vert foncé', ranges: [[0, 60], [50, 100], [0, 60]] },
-  'green': { fr: 'Vert', ranges: [[0, 80], [100, 200], [0, 100]] },
-  'lightgreen': { fr: 'Vert clair', ranges: [[100, 180], [170, 255], [100, 180]] },
-  'olive': { fr: 'Olive', ranges: [[50, 100], [80, 130], [0, 50]] },
+  // Tons de bleu
+  { 
+    range: [[0, 0, 120], [30, 30, 180]], 
+    nameFr: 'Bleu foncé', 
+    nameEn: 'Dark blue',
+    isDark: true,
+    textColor: '#FFFFFF'
+  },
+  { 
+    range: [[0, 0, 181], [65, 65, 255]], 
+    nameFr: 'Bleu', 
+    nameEn: 'Blue',
+    isDark: true,
+    textColor: '#FFFFFF'
+  },
+  { 
+    range: [[66, 66, 230], [160, 200, 255]], 
+    nameFr: 'Bleu clair', 
+    nameEn: 'Light blue',
+    isDark: false,
+    textColor: '#000000'
+  },
+  { 
+    range: [[0, 65, 106], [30, 90, 140]], 
+    nameFr: 'Bleu marine', 
+    nameEn: 'Navy blue',
+    isDark: true,
+    textColor: '#FFFFFF'
+  },
   
-  // Rouges
-  'burgundy': { fr: 'Bordeaux', ranges: [[80, 130], [0, 50], [20, 60]] },
-  'darkred': { fr: 'Rouge foncé', ranges: [[120, 160], [0, 60], [0, 60]] },
-  'red': { fr: 'Rouge', ranges: [[160, 255], [0, 80], [0, 80]] },
+  // Tons de rouge
+  { 
+    range: [[120, 0, 0], [200, 30, 30]], 
+    nameFr: 'Rouge foncé', 
+    nameEn: 'Dark red',
+    isDark: true,
+    textColor: '#FFFFFF'
+  },
+  { 
+    range: [[201, 31, 31], [255, 70, 70]], 
+    nameFr: 'Rouge', 
+    nameEn: 'Red',
+    isDark: true,
+    textColor: '#FFFFFF'
+  },
+  { 
+    range: [[181, 71, 71], [255, 150, 150]], 
+    nameFr: 'Rouge clair', 
+    nameEn: 'Light red',
+    isDark: false,
+    textColor: '#000000'
+  },
+  { 
+    range: [[180, 0, 0], [255, 50, 50]], 
+    nameFr: 'Rouge vif', 
+    nameEn: 'Bright red',
+    isDark: true,
+    textColor: '#FFFFFF'
+  },
   
-  // Jaunes, oranges
-  'brown': { fr: 'Marron', ranges: [[80, 150], [30, 90], [0, 50]] },
-  'orange': { fr: 'Orange', ranges: [[200, 255], [80, 170], [0, 70]] },
-  'gold': { fr: 'Or', ranges: [[180, 255], [150, 200], [0, 80]] },
-  'yellow': { fr: 'Jaune', ranges: [[200, 255], [200, 255], [0, 100]] },
+  // Tons de vert
+  { 
+    range: [[0, 60, 0], [30, 120, 30]], 
+    nameFr: 'Vert foncé', 
+    nameEn: 'Dark green',
+    isDark: true,
+    textColor: '#FFFFFF'
+  },
+  { 
+    range: [[31, 121, 31], [80, 200, 80]], 
+    nameFr: 'Vert', 
+    nameEn: 'Green',
+    isDark: false,
+    textColor: '#000000'
+  },
+  { 
+    range: [[81, 201, 81], [170, 255, 170]], 
+    nameFr: 'Vert clair', 
+    nameEn: 'Light green',
+    isDark: false,
+    textColor: '#000000'
+  },
   
-  // Roses, violets
-  'pink': { fr: 'Rose', ranges: [[200, 255], [100, 200], [150, 220]] },
-  'lightpink': { fr: 'Rose clair', ranges: [[240, 255], [180, 240], [200, 255]] },
-  'magenta': { fr: 'Magenta', ranges: [[180, 255], [0, 100], [100, 200]] },
-  'purple': { fr: 'Violet', ranges: [[80, 180], [0, 80], [80, 180]] },
+  // Tons de jaune
+  { 
+    range: [[230, 180, 0], [255, 255, 60]], 
+    nameFr: 'Jaune', 
+    nameEn: 'Yellow',
+    isDark: false,
+    textColor: '#000000'
+  },
+  { 
+    range: [[200, 150, 0], [229, 179, 0]], 
+    nameFr: 'Jaune foncé', 
+    nameEn: 'Dark yellow',
+    isDark: false,
+    textColor: '#000000'
+  },
   
-  // Beiges, crèmes
-  'beige': { fr: 'Beige', ranges: [[190, 240], [170, 220], [130, 180]] },
-  'cream': { fr: 'Crème', ranges: [[240, 255], [230, 255], [200, 240]] },
-};
+  // Tons de orange
+  { 
+    range: [[200, 80, 0], [255, 150, 50]], 
+    nameFr: 'Orange', 
+    nameEn: 'Orange',
+    isDark: false,
+    textColor: '#000000'
+  },
+  
+  // Tons de rose
+  { 
+    range: [[200, 0, 130], [255, 0, 200]], 
+    nameFr: 'Rose foncé', 
+    nameEn: 'Dark pink',
+    isDark: true,
+    textColor: '#FFFFFF'
+  },
+  { 
+    range: [[250, 130, 200], [255, 200, 230]], 
+    nameFr: 'Rose clair', 
+    nameEn: 'Light pink',
+    isDark: false,
+    textColor: '#000000'
+  },
+  
+  // Tons de violet
+  { 
+    range: [[80, 0, 80], [150, 0, 150]], 
+    nameFr: 'Violet foncé', 
+    nameEn: 'Dark purple',
+    isDark: true,
+    textColor: '#FFFFFF'
+  },
+  { 
+    range: [[151, 50, 151], [200, 100, 200]], 
+    nameFr: 'Violet', 
+    nameEn: 'Purple',
+    isDark: true,
+    textColor: '#FFFFFF'
+  },
+  { 
+    range: [[201, 101, 201], [235, 190, 235]], 
+    nameFr: 'Violet clair', 
+    nameEn: 'Light purple',
+    isDark: false,
+    textColor: '#000000'
+  },
+  
+  // Tons de turquoise et cyan
+  { 
+    range: [[0, 150, 150], [100, 220, 220]], 
+    nameFr: 'Turquoise', 
+    nameEn: 'Turquoise',
+    isDark: false,
+    textColor: '#000000'
+  },
+  { 
+    range: [[0, 200, 230], [130, 255, 255]], 
+    nameFr: 'Cyan', 
+    nameEn: 'Cyan',
+    isDark: false,
+    textColor: '#000000'
+  },
+  
+  // Couleurs spéciales pour les chaussures
+  { 
+    range: [[50, 20, 0], [90, 45, 20]], 
+    nameFr: 'Cuir', 
+    nameEn: 'Leather',
+    isDark: true,
+    textColor: '#FFFFFF'
+  },
+  { 
+    range: [[130, 70, 30], [170, 100, 60]], 
+    nameFr: 'Cognac', 
+    nameEn: 'Cognac',
+    isDark: true,
+    textColor: '#FFFFFF'
+  },
+  { 
+    range: [[110, 60, 30], [140, 80, 50]], 
+    nameFr: 'Châtaigne', 
+    nameEn: 'Chestnut',
+    isDark: true,
+    textColor: '#FFFFFF'
+  },
+  { 
+    range: [[180, 160, 140], [220, 200, 180]], 
+    nameFr: 'Taupe', 
+    nameEn: 'Taupe',
+    isDark: false,
+    textColor: '#000000'
+  },
+  { 
+    range: [[170, 150, 130], [190, 170, 150]], 
+    nameFr: 'Cappuccino', 
+    nameEn: 'Cappuccino',
+    isDark: false,
+    textColor: '#000000'
+  },
+  { 
+    range: [[90, 80, 70], [120, 110, 100]], 
+    nameFr: 'Anthracite', 
+    nameEn: 'Anthracite',
+    isDark: true,
+    textColor: '#FFFFFF'
+  }
+];
 
 /**
- * Détermine le nom de la couleur la plus proche à partir d'une valeur RGB
- * @param {Object} rgbColor - Objet contenant les valeurs R, G, B (entre 0 et 255)
- * @param {String} language - Langue de retour ('fr' ou 'en')
- * @returns {String} - Nom de la couleur dans la langue demandée
+ * Convertit une couleur RGB en valeur hexadécimale
+ * @param {number} r - Valeur rouge (0-255)
+ * @param {number} g - Valeur verte (0-255)
+ * @param {number} b - Valeur bleue (0-255)
+ * @return {string} - Code couleur hexadécimal (#RRGGBB)
  */
-function getColorName(rgbColor, language = 'fr') {
-  // Extraire les composantes RGB
-  const { red, green, blue } = rgbColor;
-  
-  // Stocker le meilleur match et sa distance
-  let bestMatch = null;
-  let minDistance = Infinity;
-  
-  // Parcourir toutes les couleurs nommées
-  for (const [colorKey, colorData] of Object.entries(COLOR_NAMES)) {
-    const ranges = colorData.ranges;
-    
-    // Vérifier si la couleur est dans les plages définies
-    const redInRange = red >= ranges[0][0] && red <= ranges[0][1];
-    const greenInRange = green >= ranges[1][0] && green <= ranges[1][1];
-    const blueInRange = blue >= ranges[2][0] && blue <= ranges[2][1];
-    
-    // Si toutes les composantes sont dans les plages, calculer la distance
-    if (redInRange && greenInRange && blueInRange) {
-      // Calculer le centre de chaque plage
-      const redCenter = (ranges[0][0] + ranges[0][1]) / 2;
-      const greenCenter = (ranges[1][0] + ranges[1][1]) / 2;
-      const blueCenter = (ranges[2][0] + ranges[2][1]) / 2;
-      
-      // Calculer la distance euclidienne entre la couleur et le centre de la plage
-      const distance = Math.sqrt(
-        Math.pow(red - redCenter, 2) +
-        Math.pow(green - greenCenter, 2) +
-        Math.pow(blue - blueCenter, 2)
-      );
-      
-      // Si c'est la plus petite distance trouvée, mémoriser cette couleur
-      if (distance < minDistance) {
-        minDistance = distance;
-        bestMatch = colorKey;
-      }
-    }
-  }
-  
-  // Si aucune correspondance n'a été trouvée, utiliser la méthode de distance la plus proche
-  if (!bestMatch) {
-    for (const [colorKey, colorData] of Object.entries(COLOR_NAMES)) {
-      const ranges = colorData.ranges;
-      
-      // Calculer le centre de chaque plage
-      const redCenter = (ranges[0][0] + ranges[0][1]) / 2;
-      const greenCenter = (ranges[1][0] + ranges[1][1]) / 2;
-      const blueCenter = (ranges[2][0] + ranges[2][1]) / 2;
-      
-      // Calculer la distance euclidienne entre la couleur et le centre de la plage
-      const distance = Math.sqrt(
-        Math.pow(red - redCenter, 2) +
-        Math.pow(green - greenCenter, 2) +
-        Math.pow(blue - blueCenter, 2)
-      );
-      
-      // Si c'est la plus petite distance trouvée, mémoriser cette couleur
-      if (distance < minDistance) {
-        minDistance = distance;
-        bestMatch = colorKey;
-      }
-    }
-  }
-  
-  // Retourner le nom de la couleur dans la langue demandée
-  return language === 'fr' ? COLOR_NAMES[bestMatch].fr : bestMatch;
+function rgbToHex(r, g, b) {
+  return '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1).toUpperCase();
 }
 
 /**
- * Analyse les couleurs dominantes et retourne des informations enrichies
- * @param {Array} dominantColors - Tableau des couleurs dominantes de Google Vision API
- * @returns {Array} - Tableau des couleurs avec noms et informations complémentaires
+ * Détermine le nom de couleur le plus proche pour une valeur RGB donnée
+ * @param {number} r - Valeur rouge (0-255)
+ * @param {number} g - Valeur verte (0-255)
+ * @param {number} b - Valeur bleue (0-255)
+ * @return {object} - Informations sur la couleur la plus proche
  */
-function analyzeColors(dominantColors) {
-  if (!dominantColors || !Array.isArray(dominantColors)) {
+function findClosestColor(r, g, b) {
+  // Distance euclidienne en espace RGB
+  function distance(color) {
+    const [[r1Min, g1Min, b1Min], [r1Max, g1Max, b1Max]] = color.range;
+    
+    // Vérifier si la couleur se trouve dans la plage
+    if (r >= r1Min && r <= r1Max && 
+        g >= g1Min && g <= g1Max && 
+        b >= b1Min && b <= b1Max) {
+      return 0; // Correspondance parfaite si dans la plage
+    }
+    
+    // Trouver le point le plus proche dans la plage
+    const rClosest = Math.min(Math.max(r, r1Min), r1Max);
+    const gClosest = Math.min(Math.max(g, g1Min), g1Max);
+    const bClosest = Math.min(Math.max(b, b1Min), b1Max);
+    
+    // Calculer la distance euclidienne
+    return Math.sqrt(
+      Math.pow(r - rClosest, 2) + 
+      Math.pow(g - gClosest, 2) + 
+      Math.pow(b - bClosest, 2)
+    );
+  }
+  
+  // Trouver la couleur avec la distance minimale
+  let minDistance = Infinity;
+  let closestColor = null;
+  
+  for (const color of COLOR_NAMES) {
+    const dist = distance(color);
+    if (dist < minDistance) {
+      minDistance = dist;
+      closestColor = color;
+    }
+  }
+  
+  // Si aucune correspondance trouvée (ne devrait jamais se produire)
+  if (!closestColor) {
+    return {
+      nameFr: 'Inconnu',
+      nameEn: 'Unknown',
+      isDark: r + g + b < 382, // Heuristique simple pour déterminer si c'est foncé
+      textColor: r + g + b < 382 ? '#FFFFFF' : '#000000',
+      distance: Infinity
+    };
+  }
+  
+  // Retourner les informations sur la couleur la plus proche
+  return {
+    ...closestColor,
+    distance: minDistance
+  };
+}
+
+/**
+ * Analyse les couleurs dominantes à partir des données de l'API Vision
+ * @param {Array} colorData - Données de couleurs de l'API Vision
+ * @return {Array} - Informations de couleurs enrichies
+ */
+function analyzeColors(colorData) {
+  // Vérifier si les données d'entrée sont valides
+  if (!colorData || !Array.isArray(colorData) || colorData.length === 0) {
+    console.warn('Aucune donnée de couleur valide fournie pour l\'analyse');
     return [];
   }
   
-  // Enrichir chaque couleur avec son nom et des informations supplémentaires
-  return dominantColors.map(color => {
-    const { rgb, score, pixelFraction } = color;
-    
-    // Extraire les composantes RGB à partir de la chaîne rgb(r, g, b)
-    let red, green, blue;
+  // Traiter chaque couleur
+  return colorData.map(color => {
     try {
-      [red, green, blue] = rgb.match(/\\d+/g).map(Number);
-    } catch (e) {
-      // En cas d'erreur, utiliser des valeurs par défaut
-      red = 0;
-      green = 0;
-      blue = 0;
+      // Extraire les composantes RGB du format rgb(r, g, b)
+      let r, g, b;
+      
+      if (color.rgb) {
+        // Si déjà au format rgb(r, g, b)
+        const match = color.rgb.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+        if (match) {
+          r = parseInt(match[1], 10);
+          g = parseInt(match[2], 10);
+          b = parseInt(match[3], 10);
+        }
+      }
+      
+      // Si on a un objet color avec des propriétés r, g, b
+      if (color.color) {
+        r = color.color.red || 0;
+        g = color.color.green || 0;
+        b = color.color.blue || 0;
+      }
+      
+      // Si on n'a pas pu extraire les composantes, retourner une couleur par défaut
+      if (r === undefined || g === undefined || b === undefined) {
+        console.warn('Impossible d\'extraire les composantes RGB de la couleur:', color);
+        return {
+          rgb: 'rgb(128, 128, 128)',
+          hex: '#808080',
+          red: 128,
+          green: 128,
+          blue: 128,
+          nameFr: 'Gris',
+          nameEn: 'Gray',
+          score: color.score || 0,
+          pixelFraction: color.pixelFraction || 0,
+          isDark: true,
+          textColor: '#FFFFFF'
+        };
+      }
+      
+      // Limiter les valeurs RGB à 0-255
+      r = Math.min(255, Math.max(0, r));
+      g = Math.min(255, Math.max(0, g));
+      b = Math.min(255, Math.max(0, b));
+      
+      // Trouver le nom de couleur le plus proche
+      const colorInfo = findClosestColor(r, g, b);
+      
+      // Construire l'objet de couleur enrichi
+      return {
+        rgb: `rgb(${r}, ${g}, ${b})`,
+        hex: rgbToHex(r, g, b),
+        red: r,
+        green: g,
+        blue: b,
+        nameFr: colorInfo.nameFr,
+        nameEn: colorInfo.nameEn,
+        score: color.score || 0,
+        pixelFraction: color.pixelFraction || 0,
+        isDark: colorInfo.isDark,
+        textColor: colorInfo.textColor
+      };
+    } catch (error) {
+      console.error('Erreur lors de l\'analyse d\'une couleur:', error);
+      
+      // En cas d'erreur, retourner une couleur par défaut
+      return {
+        rgb: 'rgb(128, 128, 128)',
+        hex: '#808080',
+        red: 128,
+        green: 128,
+        blue: 128,
+        nameFr: 'Gris',
+        nameEn: 'Gray',
+        score: color.score || 0,
+        pixelFraction: color.pixelFraction || 0,
+        isDark: true,
+        textColor: '#FFFFFF'
+      };
     }
-    
-    // Déterminer le nom de la couleur en français et en anglais
-    const nameFr = getColorName({ red, green, blue }, 'fr');
-    const nameEn = getColorName({ red, green, blue }, 'en');
-    
-    // Déterminer si la couleur est claire ou foncée
-    const brightness = (red * 299 + green * 587 + blue * 114) / 1000;
-    const isDark = brightness < 128;
-    
-    // Convertir en format hexadécimal
-    const hex = `#${red.toString(16).padStart(2, '0')}${green.toString(16).padStart(2, '0')}${blue.toString(16).padStart(2, '0')}`;
-    
-    // Déterminer le contraste de texte optimal (blanc pour les couleurs foncées, noir pour les claires)
-    const textColor = isDark ? '#FFFFFF' : '#000000';
-    
-    // Retourner l'objet couleur enrichi
-    return {
-      rgb,
-      hex,
-      red,
-      green,
-      blue,
-      nameFr,
-      nameEn,
-      score,
-      pixelFraction,
-      isDark,
-      textColor
-    };
   });
 }
 
 /**
- * Génère une description textuelle des couleurs de l'image
- * @param {Array} analyzedColors - Tableau des couleurs analysées
- * @returns {String} - Description textuelle des couleurs principales
+ * Génère une description textuelle pour les couleurs dominantes
+ * @param {Array} colors - Couleurs analysées
+ * @return {string} - Description textuelle
  */
-function generateColorDescription(analyzedColors) {
-  if (!analyzedColors || analyzedColors.length === 0) {
-    return "Couleurs non identifiées";
+function generateColorDescription(colors) {
+  if (!colors || colors.length === 0) {
+    return 'Couleur non détectée';
   }
   
-  // Extraire les couleurs principales (2 ou 3 maximum)
-  const mainColors = analyzedColors.slice(0, Math.min(3, analyzedColors.length));
+  // Filtrer les couleurs selon leur importance (score et pixelFraction)
+  const significantColors = colors
+    .filter(c => c.pixelFraction > 0.05) // Au moins 5% de l'image
+    .sort((a, b) => {
+      // Combiner score et pixelFraction pour le tri
+      const importanceA = a.score * Math.sqrt(a.pixelFraction);
+      const importanceB = b.score * Math.sqrt(b.pixelFraction);
+      return importanceB - importanceA;
+    });
   
-  // Utiliser les noms français pour la description
-  const colorNames = mainColors.map(color => color.nameFr);
+  // Si aucune couleur significative n'est trouvée, utiliser la première couleur
+  if (significantColors.length === 0 && colors.length > 0) {
+    return `Principalement ${colors[0].nameFr.toLowerCase()}`;
+  }
   
-  // Construire la description
-  if (colorNames.length === 1) {
-    return `Principalement ${colorNames[0]}`;
-  } else if (colorNames.length === 2) {
-    return `${colorNames[0]} et ${colorNames[1]}`;
+  // Générer une description basée sur les couleurs principales
+  if (significantColors.length === 1) {
+    return `Principalement ${significantColors[0].nameFr.toLowerCase()}`;
+  } else if (significantColors.length === 2) {
+    return `${significantColors[0].nameFr} et ${significantColors[1].nameFr.toLowerCase()}`;
   } else {
-    return `${colorNames[0]}, ${colorNames[1]} et ${colorNames[2]}`;
+    const mainColor = significantColors[0].nameFr;
+    const otherColors = significantColors
+      .slice(1, 3) // Limiter à 2 couleurs supplémentaires
+      .map(c => c.nameFr.toLowerCase())
+      .join(' et ');
+    
+    return `${mainColor} avec ${otherColors}`;
   }
 }
 
-// Exporter les fonctions du module
 module.exports = {
   analyzeColors,
-  getColorName,
-  generateColorDescription
+  generateColorDescription,
+  findClosestColor,
+  rgbToHex
 };
