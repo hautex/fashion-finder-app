@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { FaUpload, FaSearch, FaShoppingBag, FaTag, FaCheck, FaExclamationTriangle, FaInfoCircle, FaExternalLinkAlt, FaBug, FaTerminal, FaStore, FaEye, FaRegHeart, FaRegEye, FaShareAlt, FaStar } from 'react-icons/fa';
+import { FaUpload, FaSearch, FaShoppingBag, FaTag, FaCheck, FaExclamationTriangle, FaInfoCircle, FaBug, FaTerminal, FaStore, FaEye, FaRegHeart, FaRegEye, FaShareAlt, FaStar } from 'react-icons/fa';
 import { RiShirtLine } from 'react-icons/ri';
 import { BiLoaderAlt } from 'react-icons/bi';
+import ProductCard from './components/ProductCard';
 import './App.css';
 
 // Résultats de secours pour garantir que l'application fonctionne même sans API
@@ -94,7 +95,7 @@ function App() {
   const logsEndRef = useRef(null);
   const [useFallback, setUseFallback] = useState(false);
   const [showLogs, setShowLogs] = useState(true);
-  const [viewMode, setViewMode] = useState('grid'); // 'grid' ou 'lens'
+  const [viewMode, setViewMode] = useState('lens'); // 'grid' ou 'lens' - Par défaut en mode Lens
 
   // Fonction pour ajouter des logs
   const addLog = (message, type = 'info') => {
@@ -278,7 +279,7 @@ function App() {
           // Afficher les étapes d'analyse
           if (data.analysis) {
             if (data.analysis.labels && data.analysis.labels.length) {
-              addLog(`Détection: ${data.analysis.labels.map(l => l.description).join(', ')}`, 'success');
+              addLog(`Détection: ${data.analysis.labels.slice(0, 5).map(l => l.description).join(', ')}`, 'success');
             }
             
             if (data.analysis.colors && data.analysis.colors.length) {
@@ -296,6 +297,12 @@ function App() {
           
           if (data.similarProducts) {
             addLog(`${data.similarProducts.length} produits similaires trouvés`, data.similarProducts.length > 0 ? 'success' : 'warning');
+            
+            // Vérifier les liens directs
+            const directLinksCount = data.similarProducts.filter(p => p.directLink !== p.link).length;
+            if (directLinksCount > 0) {
+              addLog(`${directLinksCount} liens directs vers des produits spécifiques identifiés`, 'success');
+            }
           }
           
         } catch (parseError) {
@@ -388,43 +395,6 @@ function App() {
     addLog(`Mode d'affichage changé pour: ${viewMode === 'grid' ? 'style Google Lens' : 'grille'}`, 'info');
   };
 
-  // Fonction utilitaire pour corriger les liens manquants
-  const fixImageUrl = (url) => {
-    if (!url || url === '') {
-      return 'https://via.placeholder.com/300x150?text=Image+non+disponible';
-    }
-    if (url.startsWith('http://') || url.startsWith('https://')) {
-      return url;
-    }
-    return 'https://' + url;
-  };
-
-  // Fonction pour extraire le nom du site
-  const extractSiteName = (displayLink) => {
-    if (!displayLink) return '';
-    
-    // Supprimer www. si présent
-    let siteName = displayLink.replace(/^www\./, '');
-    
-    // Extraire le nom de base (avant le premier point)
-    siteName = siteName.split('.')[0];
-    
-    // Mettre la première lettre en majuscule
-    return siteName.charAt(0).toUpperCase() + siteName.slice(1);
-  };
-  
-  // Formater le prix pour l'affichage
-  const formatPrice = (price) => {
-    if (!price) return '';
-    
-    // Vérifier si c'est déjà formaté
-    if (price.startsWith('€') || price.startsWith('$') || price.startsWith('£')) {
-      return price;
-    }
-    
-    return `€${price}`;
-  };
-
   return (
     <div className="min-h-screen bg-gray-100">
       <header className="bg-blue-600 text-white shadow-lg">
@@ -446,7 +416,7 @@ function App() {
                 ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200' 
                 : 'bg-blue-700 text-white hover:bg-blue-800'}`}
             >
-              {useFallback ? '🔄 Mode démonstration actif' : '🔍 Mode analyse réelle'}
+              {useFallback ? '🔄 Mode démo' : '🔍 Mode réel'}
             </button>
           </div>
         </div>
@@ -685,7 +655,7 @@ function App() {
               <div className="py-3">
                 <h3 className="font-medium text-gray-800 mb-2">Caractéristiques détectées:</h3>
                 <div className="flex flex-wrap gap-2">
-                  {results.analysis.labels.map((label, index) => (
+                  {results.analysis.labels.slice(0, 8).map((label, index) => (
                     <span 
                       key={index} 
                       className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs"
@@ -735,41 +705,11 @@ function App() {
             <div className="p-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {results.similarProducts.map((product, index) => (
-                  <div key={index} className="border rounded-lg overflow-hidden hover:shadow-md transition-shadow">
-                    <div className="h-48 overflow-hidden">
-                      <img 
-                        src={fixImageUrl(product.image)} 
-                        alt={product.title} 
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          e.target.onerror = null;
-                          e.target.src = 'https://via.placeholder.com/300x150?text=Image+non+disponible';
-                        }}
-                      />
-                    </div>
-                    <div className="p-4">
-                      <h3 className="font-medium text-gray-800 mb-1 line-clamp-2">
-                        {product.title}
-                      </h3>
-                      <p className="text-sm text-gray-500 mb-2">
-                        {product.displayLink}
-                      </p>
-                      {product.price && (
-                        <p className="text-green-600 font-bold mb-2">{product.price}</p>
-                      )}
-                      <p className="text-sm text-gray-600 mb-3 line-clamp-2">
-                        {product.snippet}
-                      </p>
-                      <a 
-                        href={product.directLink || product.link} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center text-blue-600 hover:text-blue-800 text-sm font-medium"
-                      >
-                        Voir le produit <FaExternalLinkAlt className="ml-1" size={12} />
-                      </a>
-                    </div>
-                  </div>
+                  <ProductCard 
+                    key={index} 
+                    product={product} 
+                    viewMode="grid" 
+                  />
                 ))}
               </div>
             </div>
@@ -786,9 +726,9 @@ function App() {
               </h2>
             </div>
             
-            <div className="p-4 flex">
+            <div className="p-4 md:flex">
               {/* Image originale à gauche */}
-              <div className="w-1/3 pr-4">
+              <div className="md:w-1/3 pr-4 mb-4 md:mb-0">
                 <div className="bg-gray-100 rounded-lg overflow-hidden h-72">
                   <img 
                     src={previewUrl} 
@@ -819,55 +759,18 @@ function App() {
               </div>
               
               {/* Liste des produits à droite (style Google Lens) */}
-              <div className="w-2/3 pl-4">
+              <div className="md:w-2/3 md:pl-4">
                 <div className="bg-gray-50 p-2 rounded mb-4 text-sm text-gray-600">
                   {results.similarProducts.length} articles visuellement similaires trouvés
                 </div>
                 
                 <div className="space-y-4">
                   {results.similarProducts.map((product, index) => (
-                    <a 
-                      key={index}
-                      href={product.directLink || product.link}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-start bg-white rounded-lg overflow-hidden border hover:shadow-md transition-shadow p-2"
-                    >
-                      {/* Image du produit */}
-                      <div className="w-24 h-24 flex-shrink-0 rounded overflow-hidden">
-                        <img 
-                          src={fixImageUrl(product.image)} 
-                          alt={product.title}
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            e.target.onerror = null;
-                            e.target.src = 'https://via.placeholder.com/100x100?text=Image+non+disponible';
-                          }}
-                        />
-                      </div>
-                      
-                      {/* Informations du produit */}
-                      <div className="ml-4 flex-grow">
-                        <p className="text-sm font-medium text-blue-600 mb-1 line-clamp-2">{product.title}</p>
-                        <div className="flex items-center mb-1">
-                          <FaStore className="text-gray-400 mr-1 text-xs" />
-                          <span className="text-xs text-gray-500">{extractSiteName(product.displayLink)}</span>
-                        </div>
-                        {product.price && (
-                          <p className="text-sm font-bold text-green-600">{formatPrice(product.price)}</p>
-                        )}
-                      </div>
-                      
-                      {/* Actions */}
-                      <div className="flex-shrink-0 flex flex-col items-center gap-2 ml-2">
-                        <div className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 hover:bg-gray-100 hover:text-gray-600">
-                          <FaRegHeart size={14} />
-                        </div>
-                        <div className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 hover:bg-gray-100 hover:text-gray-600">
-                          <FaShareAlt size={14} />
-                        </div>
-                      </div>
-                    </a>
+                    <ProductCard 
+                      key={index} 
+                      product={product} 
+                      viewMode="lens" 
+                    />
                   ))}
                 </div>
                 
