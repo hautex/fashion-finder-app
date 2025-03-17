@@ -9,6 +9,8 @@ const fs = require('fs');
 // Charger nos services personnalisés
 const colorDetection = require('./services/colorDetection');
 const fashionTerms = require('./services/fashionTerms');
+const objectColorExtractor = require('./services/objectColorExtractor');
+const productSearch = require('./services/productSearch');
 
 // Charger les variables d'environnement
 dotenv.config({ path: path.resolve(__dirname, '.env.local') });
@@ -45,100 +47,6 @@ const upload = multer({
   }
 });
 
-// Données de secours pour garantir au moins quelques résultats
-// Ces résultats de fallback seront adaptés dynamiquement en fonction du type d'article détecté
-const fallbackResults = {
-  robe: [
-    {
-      title: 'Robe de soirée élégante avec cape - Noir/Bleu Marine',
-      link: 'https://www.ralphlauren.fr/fr/robe-de-cocktail-a-cape-en-georgette-3616533815713.html',
-      displayLink: 'www.ralphlauren.fr',
-      image: 'https://www.ralphlauren.fr/dw/image/v2/BFQN_PRD/on/demandware.static/-/Sites-rl-products/default/dwe38c9683/images/524867/524867_3001399_pdl.jpg',
-      snippet: 'Robe élégante à cape, idéale pour les événements formels et cocktails.',
-      price: '€299,00'
-    },
-    {
-      title: 'Robe de Cocktail Cape - Bleu Marine',
-      link: 'https://fr.shein.com/Cape-Sleeve-Belted-Navy-Pencil-Dress-p-10351290-cat-1727.html',
-      displayLink: 'fr.shein.com',
-      image: 'https://img.ltwebstatic.com/images3_pi/2022/12/29/1672297837a31ec85513e2397c9eb0e6c21e3c86a2_thumbnail_600x.jpg',
-      snippet: 'Robe fourreau élégante avec cape et ceinture, parfaite pour les occasions spéciales.',
-      price: '€22,00'
-    },
-    {
-      title: 'Robe Élégante Midi avec Cape - Collection Soirée',
-      link: 'https://www.asos.com/fr/asos-design/asos-design-robe-mi-longue-avec-cape-en-crepe/prd/203080653',
-      displayLink: 'www.asos.com',
-      image: 'https://images.asos-media.com/products/asos-design-robe-mi-longue-avec-cape-en-crepe/203080653-1-navy',
-      snippet: 'Robe midi élégante avec cape intégrée, coupe fluide et ceinture fine.',
-      price: '€69,99'
-    }
-  ],
-  sac: [
-    {
-      title: 'Sacoche en cuir marron - The Bridge Story Uomo',
-      link: 'https://www.thebridgeonlineshop.com/fr/pc_sacoches_the_bridge_story_uomo_marron_cuir_retro_06460001-14.html',
-      displayLink: 'www.thebridgeonlineshop.com',
-      image: 'https://www.thebridgeonlineshop.com/images/products/xxlarge/06460001-14_1.jpg',
-      snippet: 'Sacoche en cuir pleine fleur marron, design vintage avec finitions métal antique.',
-      price: '€299,00'
-    },
-    {
-      title: 'Sacoche Homme Cuir Véritable GALANTY - Marron',
-      link: 'https://galantycuir.fr/produit/sacoche-homme-cuir-veritable-marron/',
-      displayLink: 'galantycuir.fr',
-      image: 'https://galantycuir.fr/wp-content/uploads/2022/06/Sacoche-pour-homme-marron-collection-galanty-cuir-1200-x-1200.jpg',
-      snippet: 'Sacoche en cuir véritable pour homme, fermeture à rabat, bandoulière ajustable.',
-      price: '€129,90'
-    },
-    {
-      title: 'Sacoche Bandoulière en Cuir Marron pour Homme - Lancaster',
-      link: 'https://www.lancasterparis.com/fr/homme/sacoche-bandouliere-homme-en-cuir.html',
-      displayLink: 'www.lancasterparis.com',
-      image: 'https://www.lancasterparis.com/media/catalog/product/cache/8f98983e4fa66442f6f59fa8cabaf2fd/c/u/cuir-chic-sacoche-homme-marron-42-20016-1.jpg',
-      snippet: 'Sacoche Lancaster en cuir de vachette pleine fleur, format A5, intérieur organisé.',
-      price: '€219,00'
-    }
-  ],
-  chaussure: [
-    {
-      title: 'Sneakers Homme Classic - Nike Air Force 1',
-      link: 'https://www.nike.com/fr/t/chaussure-air-force-1-07-pour-7ZH74r/CW2288-111',
-      displayLink: 'www.nike.com',
-      image: 'https://static.nike.com/a/images/t_PDP_1280_v1/f_auto,q_auto:eco/hsbt7ij8iblylmzbbvkt/chaussure-air-force-1-07-pour-ZH74rf.png',
-      snippet: 'Baskets emblématiques en cuir blanc, semelle en caoutchouc coussin d\'air Nike Air.',
-      price: '€119,99'
-    },
-    {
-      title: 'Oxford Classic - Chaussures en cuir marron',
-      link: 'https://fr.meermin.com/products/101198-oak-antique-calf-e',
-      displayLink: 'fr.meermin.com',
-      image: 'https://cdn.shopify.com/s/files/1/0277/2511/9929/products/Meermin_Mallorca_101198_5_grande.jpg',
-      snippet: 'Chaussures Oxford classiques en cuir de veau marron, finition artisanale.',
-      price: '€195,00'
-    }
-  ],
-  // Catégorie par défaut pour tout autre type d'article
-  default: [
-    {
-      title: 'Article Mode Tendance - Collection Actuelle',
-      link: 'https://www.zalando.fr/mode/',
-      displayLink: 'www.zalando.fr',
-      image: 'https://img01.ztat.net/article/spp-media-p1/7df308f9c58a3f488652317f6786ee72/dd02f2e6e2a245b0a89c61a113d56a96.jpg',
-      snippet: 'Découvrez les dernières tendances mode, tous styles et toutes marques.',
-      price: '€49,95'
-    },
-    {
-      title: 'Vêtements et Accessoires de Qualité',
-      link: 'https://www2.hm.com/fr_fr/index.html',
-      displayLink: 'www2.hm.com',
-      image: 'https://lp2.hm.com/hmgoepprod?source=url[https://www2.hm.com/content/dam/TOOLBOX/PRE_SEASON/2022_pss/March_2022/Startpage_1_1_Trend.jpg]&scale=size[960]&sink=format[jpeg],quality[80]',
-      snippet: 'Mode femme, homme et enfant au meilleur prix, collections exclusives et nouvelles tendances.',
-      price: ''
-    }
-  ]
-};
-
 // Fonction pour analyser l'image avec Google Vision API directement via HTTPS
 async function analyzeImage(imagePath) {
   try {
@@ -152,7 +60,7 @@ async function analyzeImage(imagePath) {
     const apiKey = process.env.GOOGLE_VISION_API_KEY;
     const url = `https://vision.googleapis.com/v1/images:annotate?key=${apiKey}`;
     
-    // Construire le corps de la requête
+    // Construire le corps de la requête avec plus de features pour une meilleure détection
     const requestBody = {
       requests: [
         {
@@ -161,7 +69,9 @@ async function analyzeImage(imagePath) {
             { type: 'LABEL_DETECTION', maxResults: 20 },
             { type: 'IMAGE_PROPERTIES', maxResults: 8 },
             { type: 'OBJECT_LOCALIZATION', maxResults: 15 },
-            { type: 'WEB_DETECTION', maxResults: 15 }
+            { type: 'WEB_DETECTION', maxResults: 15 },
+            { type: 'TEXT_DETECTION', maxResults: 10 }, // Ajoute détection de texte (peut contenir des marques)
+            { type: 'LOGO_DETECTION', maxResults: 5 }   // Ajoute détection de logos
           ]
         }
       ]
@@ -179,44 +89,60 @@ async function analyzeImage(imagePath) {
     
     // Extraire les informations pertinentes
     const result = response.data.responses[0];
-    const { labelAnnotations, imagePropertiesAnnotation, localizedObjectAnnotations, webDetection } = result;
+    const { 
+      labelAnnotations, 
+      imagePropertiesAnnotation, 
+      localizedObjectAnnotations, 
+      webDetection,
+      textAnnotations,
+      logoAnnotations
+    } = result;
     
-    // Imprimer tous les labels pour débogage
-    console.log("Labels détectés:", labelAnnotations.map(label => label.description));
-    console.log("Objets détectés:", localizedObjectAnnotations.map(obj => obj.name));
+    // Imprimer les informations de débogage
+    console.log("Labels détectés:", labelAnnotations?.map(label => label.description) || []);
+    console.log("Objets détectés:", localizedObjectAnnotations?.map(obj => obj.name) || []);
     
-    // Extraire les couleurs dominantes
-    const colors = (imagePropertiesAnnotation?.dominantColors?.colors || [])
-      .slice(0, 8)
-      .map(color => {
-        const { red, green, blue } = color.color;
-        return {
-          rgb: `rgb(${red}, ${green}, ${blue})`,
-          score: color.score,
-          pixelFraction: color.pixelFraction
-        };
-      });
+    // Trouver l'objet principal sur l'image
+    const mainObject = objectColorExtractor.findMainObject(localizedObjectAnnotations || []);
+    console.log("Objet principal détecté:", mainObject ? mainObject.name : "Aucun");
     
-    // Si aucune couleur n'est extraite, ajouter une couleur par défaut
-    if (colors.length === 0) {
-      colors.push({
-        rgb: 'rgb(128, 128, 128)', // Gris (neutre)
-        score: 1.0,
-        pixelFraction: 1.0
-      });
+    // Extraire les couleurs spécifiques à l'objet principal (si trouvé)
+    let objectColors = [];
+    let colorDescription = "Non détecté";
+    
+    if (mainObject) {
+      // Extraire les couleurs spécifiquement à cet objet
+      objectColors = await objectColorExtractor.extractObjectColors(imageFile, mainObject);
+      colorDescription = colorDetection.generateColorDescription(objectColors);
+      console.log(`Couleurs de l'objet principal (${mainObject.name}):`, 
+                  objectColors.map(c => c.nameFr).join(', '));
+    } else {
+      // Fallback sur les couleurs globales de l'image
+      const globalColors = (imagePropertiesAnnotation?.dominantColors?.colors || [])
+        .slice(0, 8)
+        .map(color => {
+          const { red, green, blue } = color.color;
+          return {
+            rgb: `rgb(${red}, ${green}, ${blue})`,
+            score: color.score,
+            pixelFraction: color.pixelFraction
+          };
+        });
+      
+      objectColors = colorDetection.analyzeColors(globalColors);
+      colorDescription = colorDetection.generateColorDescription(objectColors);
+      console.log("Couleurs globales de l'image:", objectColors.map(c => c.nameFr).join(', '));
     }
-    
-    // Utiliser notre service de détection avancée des couleurs
-    const analyzedColors = colorDetection.analyzeColors(colors);
-    const colorDescription = colorDetection.generateColorDescription(analyzedColors);
     
     // Extraire les objets détectés
     const objects = (localizedObjectAnnotations || []).map(obj => ({
       name: obj.name,
-      confidence: obj.score
+      confidence: obj.score,
+      // Ajouter les coordonnées de délimitation pour référence
+      boundingPoly: obj.boundingPoly ? obj.boundingPoly.normalizedVertices : []
     }));
     
-    // Extraire les entités web pertinentes si disponibles
+    // Extraire les entités web pertinentes
     const webEntities = (webDetection?.webEntities || [])
       .filter(entity => entity.score > 0.5)
       .map(entity => ({
@@ -231,14 +157,35 @@ async function analyzeImage(imagePath) {
         url: image.url
       }));
     
+    // Extraire le texte détecté (peut contenir des marques, tailles, etc.)
+    const detectedText = (textAnnotations || [])
+      .slice(1) // Ignorer le premier qui contient tout le texte
+      .map(text => ({
+        text: text.description,
+        confidence: text.score || 0.9
+      }));
+    
+    // Extraire les logos détectés (marques potentielles)
+    const detectedLogos = (logoAnnotations || [])
+      .map(logo => ({
+        name: logo.description,
+        confidence: logo.score
+      }));
+    
     // Résultats enrichis
     return {
       labels: labelAnnotations || [],
-      colors: analyzedColors,
+      colors: objectColors,
       colorDescription,
+      mainObject: mainObject ? {
+        name: mainObject.name,
+        confidence: mainObject.score
+      } : null,
       objects,
       webEntities,
-      similarImages
+      similarImages,
+      detectedText,
+      detectedLogos
     };
   } catch (error) {
     console.error('Erreur détaillée lors de l\'analyse de l\'image:', error);
@@ -250,96 +197,29 @@ async function analyzeImage(imagePath) {
     // Même en cas d'erreur, renvoyer des résultats de base pour éviter un échec complet
     return {
       labels: [{ description: "clothing", score: 0.9 }, { description: "fashion", score: 0.9 }],
-      colors: [{ rgb: 'rgb(128, 128, 128)', score: 1.0, pixelFraction: 1.0 }],
+      colors: [{ 
+        rgb: 'rgb(128, 128, 128)', 
+        hex: '#808080',
+        red: 128, green: 128, blue: 128,
+        nameFr: 'Gris', 
+        nameEn: 'gray',
+        score: 1.0, 
+        pixelFraction: 1.0,
+        isDark: true,
+        textColor: '#FFFFFF'
+      }],
       colorDescription: "Principalement gris",
+      mainObject: null,
       objects: [{ name: "Clothing", confidence: 0.9 }],
       webEntities: [{ description: "Fashion", score: 0.9 }],
-      similarImages: []
+      similarImages: [],
+      detectedText: [],
+      detectedLogos: []
     };
   }
 }
 
-// Fonction pour rechercher des produits similaires en utilisant directement l'API Custom Search
-async function searchSimilarProducts(query, itemType = 'default') {
-  try {
-    console.log(`Recherche pour la requête: "${query}" (type: ${itemType})`);
-    
-    const apiKey = process.env.GOOGLE_CUSTOM_SEARCH_API_KEY;
-    const cx = process.env.GOOGLE_CUSTOM_SEARCH_ENGINE_ID;
-    
-    if (!apiKey || !cx) {
-      console.warn('Les clés API Google Custom Search sont manquantes - utilisation des résultats de secours');
-      return getFallbackResults(itemType);
-    }
-    
-    // Ajouter des termes de shopping à la requête
-    const enhancedQuery = `${query} acheter prix`;
-    
-    const url = `https://www.googleapis.com/customsearch/v1?key=${apiKey}&cx=${cx}&q=${encodeURIComponent(enhancedQuery)}&num=10`;
-    
-    console.log(`URL de recherche: ${url}`);
-    const response = await axios.get(url);
-    
-    // Vérifier la réponse
-    if (!response.data || !response.data.items || response.data.items.length === 0) {
-      console.warn('Aucun résultat trouvé via Google Custom Search - utilisation des résultats de secours');
-      return getFallbackResults(itemType);
-    }
-    
-    console.log(`Nombre de résultats trouvés: ${response.data.items.length}`);
-    
-    // Traiter les résultats
-    const items = response.data.items || [];
-    const processedResults = items.map(item => ({
-      title: item.title || 'Produit sans titre',
-      link: item.link || '',
-      displayLink: item.displayLink || '',
-      image: item.pagemap?.cse_image?.[0]?.src || item.pagemap?.cse_thumbnail?.[0]?.src || item.link || '',
-      snippet: item.snippet || '',
-      price: extractPrice(item.title, item.snippet)
-    }));
-    
-    // Si aucun résultat n'a d'image, utiliser les résultats de secours
-    if (processedResults.every(item => !item.image || item.image === item.link)) {
-      console.warn('Aucune image trouvée dans les résultats - utilisation des résultats de secours');
-      return getFallbackResults(itemType);
-    }
-    
-    return processedResults;
-  } catch (error) {
-    console.error('Erreur détaillée lors de la recherche de produits:', error);
-    if (error.response) {
-      console.error('Réponse d\'erreur:', error.response.data);
-    }
-    
-    console.warn('Erreur lors de la recherche - utilisation des résultats de secours');
-    return getFallbackResults(itemType);
-  }
-}
-
-// Fonction pour obtenir les résultats de secours appropriés selon le type d'article
-function getFallbackResults(itemType) {
-  if (fallbackResults[itemType]) {
-    return fallbackResults[itemType];
-  }
-  return fallbackResults.default;
-}
-
-// Fonction utilitaire pour extraire un prix d'un texte
-function extractPrice(title, snippet) {
-  const combined = `${title || ''} ${snippet || ''}`;
-  
-  // Recherche plus robuste de prix en différentes devises
-  const priceRegex = /(\$|€|£|EUR|USD|CAD)?\s?(\d+[\.,]\d{2}|\d+)/;
-  const match = combined.match(priceRegex);
-  
-  if (match) {
-    return match[0];
-  }
-  return null;
-}
-
-// Nouvelle fonction pour construire une requête de recherche intelligente
+// Fonction pour construire une requête de recherche intelligente
 function buildSearchQuery(analysisResults) {
   try {
     console.log("Construction d'une requête de recherche optimisée...");
@@ -351,39 +231,89 @@ function buildSearchQuery(analysisResults) {
       ...(analysisResults.webEntities || [])
     ];
     
+    // Ajouter les textes détectés qui pourraient contenir des marques
+    if (analysisResults.detectedText && analysisResults.detectedText.length > 0) {
+      const textLabels = analysisResults.detectedText.map(item => ({
+        description: item.text,
+        score: item.confidence || 0.9
+      }));
+      allLabels.push(...textLabels);
+    }
+    
+    // Ajouter les logos détectés qui sont probablement des marques
+    if (analysisResults.detectedLogos && analysisResults.detectedLogos.length > 0) {
+      const logoLabels = analysisResults.detectedLogos.map(logo => ({
+        description: logo.name,
+        score: logo.confidence || 0.9
+      }));
+      allLabels.push(...logoLabels);
+    }
+    
     const extractedTerms = fashionTerms.extractFashionTerms(allLabels);
     console.log("Termes de mode extraits:", extractedTerms);
     
     // Déterminer le type d'article principal (pour adapter les fallbacks plus tard)
     let mainItemType = 'default';
-    if (extractedTerms.clothing.length > 0) {
+    let mainColor = '';
+    
+    // Si un objet principal a été identifié, l'utiliser comme référence
+    if (analysisResults.mainObject) {
+      const mainObjectName = analysisResults.mainObject.name.toLowerCase();
+      mainItemType = mainObjectName;
+      
+      if (mainObjectName.includes('shoe') || mainObjectName.includes('boot')) {
+        mainItemType = 'chaussure';
+      } else if (mainObjectName.includes('bag') || mainObjectName.includes('handbag')) {
+        mainItemType = 'sac';
+      } else if (mainObjectName.includes('jacket') || mainObjectName.includes('coat')) {
+        mainItemType = 'veste';
+      } else if (mainObjectName.includes('dress')) {
+        mainItemType = 'robe';
+      } else if (mainObjectName.includes('pants') || mainObjectName.includes('trousers')) {
+        mainItemType = 'pantalon';
+      }
+    } 
+    // Sinon, utiliser les termes extraits
+    else if (extractedTerms.clothing.length > 0) {
       const mainItem = extractedTerms.clothing[0].toLowerCase();
       
       if (mainItem.includes('dress') || mainItem.includes('robe')) {
         mainItemType = 'robe';
-      } else if (mainItem.includes('bag') || mainItem.includes('sac') || mainItem.includes('sacoche') || mainItem.includes('purse') || mainItem.includes('handbag')) {
+      } else if (mainItem.includes('bag') || mainItem.includes('sac') || 
+                 mainItem.includes('sacoche') || mainItem.includes('purse') || 
+                 mainItem.includes('handbag')) {
         mainItemType = 'sac';
-      } else if (mainItem.includes('shoe') || mainItem.includes('chaussure') || mainItem.includes('sneaker') || mainItem.includes('boot')) {
+      } else if (mainItem.includes('shoe') || mainItem.includes('chaussure') || 
+                 mainItem.includes('sneaker') || mainItem.includes('boot') ||
+                 mainItem.includes('bottine')) {
         mainItemType = 'chaussure';
       }
+    }
+    
+    // Extraire la couleur principale
+    if (analysisResults.colors && analysisResults.colors.length > 0) {
+      mainColor = analysisResults.colors[0].nameFr || '';
     }
     
     // Générer une requête optimisée avec notre service
     const optimizedQuery = fashionTerms.generateOptimizedQuery(extractedTerms, analysisResults.colors);
     
     console.log(`Type d'article principal détecté: ${mainItemType}`);
+    console.log(`Couleur principale: ${mainColor}`);
     console.log(`Requête optimisée: ${optimizedQuery}`);
     
     return {
       query: optimizedQuery,
-      itemType: mainItemType
+      itemType: mainItemType,
+      color: mainColor
     };
   } catch (error) {
     console.error('Erreur lors de la construction de la requête:', error);
     // Requête de secours en cas d'erreur
     return {
       query: 'vêtement mode acheter',
-      itemType: 'default'
+      itemType: 'default',
+      color: ''
     };
   }
 }
@@ -476,11 +406,15 @@ app.post('/api/analyze', upload.single('image'), async (req, res) => {
       
       // Construire une requête à partir des résultats d'analyse
       searchQueryInfo = buildSearchQuery(analysisResults);
-      console.log(`Requête de recherche construite: "${searchQueryInfo.query}" (type: ${searchQueryInfo.itemType})`);
+      console.log(`Requête de recherche construite: "${searchQueryInfo.query}" (type: ${searchQueryInfo.itemType}, couleur: ${searchQueryInfo.color})`);
       
-      // Rechercher des produits similaires
+      // Rechercher des produits similaires avec notre service amélioré
       console.log('Début de la recherche de produits similaires...');
-      similarProducts = await searchSimilarProducts(searchQueryInfo.query, searchQueryInfo.itemType);
+      similarProducts = await productSearch.searchFashionProducts(
+        searchQueryInfo.query, 
+        searchQueryInfo.itemType,
+        searchQueryInfo.color
+      );
       console.log(`${similarProducts.length} produits similaires trouvés`);
     } catch (error) {
       console.error('Erreur pendant le traitement:', error);
@@ -488,22 +422,41 @@ app.post('/api/analyze', upload.single('image'), async (req, res) => {
       // En cas d'erreur, utiliser des valeurs par défaut pour éviter un échec complet
       analysisResults = {
         labels: [{ description: "fashion", score: 0.9 }, { description: "vêtement", score: 0.9 }],
-        colors: [{ rgb: 'rgb(128, 128, 128)', score: 1.0, pixelFraction: 1.0 }],
-        colorDescription: "Gris",
+        colors: [{ 
+          rgb: 'rgb(128, 128, 128)', 
+          hex: '#808080',
+          red: 128, green: 128, blue: 128,
+          nameFr: 'Gris', 
+          nameEn: 'gray',
+          score: 1.0, 
+          pixelFraction: 1.0,
+          isDark: true,
+          textColor: '#FFFFFF'
+        }],
+        colorDescription: "Principalement gris",
+        mainObject: null,
         objects: [{ name: "Clothing", confidence: 0.9 }],
         webEntities: [{ description: "Fashion", score: 0.9 }],
-        similarImages: []
+        similarImages: [],
+        detectedText: [],
+        detectedLogos: []
       };
       searchQueryInfo = {
         query: "vêtement mode acheter",
-        itemType: "default"
+        itemType: "default",
+        color: "gris"
       };
-      similarProducts = fallbackResults.default;
+      
+      // Utiliser le service productSearch pour les résultats de secours
+      similarProducts = await productSearch.getFallbackResults(
+        searchQueryInfo.itemType, 
+        searchQueryInfo.color
+      );
       
       console.log('Utilisation des résultats de secours suite à une erreur');
     }
     
-    // Envoyer les résultats au client (même en cas d'erreur, nous avons des résultats de secours)
+    // Envoyer les résultats au client
     res.json({
       success: true,
       analysis: analysisResults,
@@ -524,15 +477,28 @@ app.post('/api/analyze', upload.single('image'), async (req, res) => {
       success: true,
       analysis: {
         labels: [{ description: "fashion", score: 0.9 }, { description: "vêtement", score: 0.9 }],
-        colors: [{ rgb: 'rgb(128, 128, 128)', score: 1.0, pixelFraction: 1.0 }],
+        colors: [{ 
+          rgb: 'rgb(128, 128, 128)', 
+          hex: '#808080',
+          red: 128, green: 128, blue: 128,
+          nameFr: 'Gris', 
+          nameEn: 'gray',
+          score: 1.0, 
+          pixelFraction: 1.0,
+          isDark: true,
+          textColor: '#FFFFFF'
+        }],
         colorDescription: "Gris",
+        mainObject: null,
         objects: [{ name: "Clothing", confidence: 0.9 }],
         webEntities: [{ description: "Fashion", score: 0.9 }],
-        similarImages: []
+        similarImages: [],
+        detectedText: [],
+        detectedLogos: []
       },
       searchQuery: "vêtement mode acheter",
       itemType: "default",
-      similarProducts: fallbackResults.default
+      similarProducts: await productSearch.getFallbackResults("default", "")
     });
     
     // Nettoyer le fichier en cas d'erreur
@@ -544,16 +510,59 @@ app.post('/api/analyze', upload.single('image'), async (req, res) => {
   }
 });
 
+// Route pour recherche manuelle (sans analyse d'image)
+app.post('/api/search', express.json(), async (req, res) => {
+  try {
+    const { query, itemType, color } = req.body;
+    
+    if (!query) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Une requête de recherche est requise' 
+      });
+    }
+    
+    console.log(`Recherche manuelle: "${query}" (type: ${itemType || 'non spécifié'}, couleur: ${color || 'non spécifiée'})`);
+    
+    // Utiliser notre service de recherche amélioré
+    const results = await productSearch.searchFashionProducts(
+      query, 
+      itemType || 'default',
+      color || ''
+    );
+    
+    res.json({
+      success: true,
+      searchQuery: query,
+      itemType: itemType || 'default',
+      similarProducts: results
+    });
+  } catch (error) {
+    console.error('Erreur lors de la recherche manuelle:', error);
+    
+    // En cas d'erreur, utiliser les résultats de secours
+    res.json({
+      success: true,
+      searchQuery: req.body.query || 'recherche',
+      itemType: req.body.itemType || 'default',
+      similarProducts: await productSearch.getFallbackResults(
+        req.body.itemType || 'default', 
+        req.body.color || ''
+      )
+    });
+  }
+});
+
 // Route de test
 app.get('/api/test', (req, res) => {
-  res.json({ message: 'API fonctionnelle!', version: '1.4.0' });
+  res.json({ message: 'API fonctionnelle!', version: '2.0.0' });
 });
 
 // Démarrer le serveur
 app.listen(port, () => {
   console.log(`
 =======================================================
-  Fashion Finder API Server v1.4.0
+  Fashion Finder API Server v2.0.0
 =======================================================
   Serveur démarré sur le port ${port}
   
@@ -561,6 +570,7 @@ app.listen(port, () => {
   - GET  /api/test           Test de base de l'API
   - GET  /api/check-apis     Vérification des API Google
   - POST /api/analyze        Analyse d'image et recherche
+  - POST /api/search         Recherche manuelle sans image
   
   Environnement:
   - Vision API:      ${process.env.GOOGLE_VISION_API_KEY ? 'Configurée' : 'Non configurée'}
