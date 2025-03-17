@@ -66,12 +66,12 @@ async function analyzeImage(imagePath) {
         {
           image: { content: encodedImage },
           features: [
-            { type: 'LABEL_DETECTION', maxResults: 20 },
-            { type: 'IMAGE_PROPERTIES', maxResults: 8 },
-            { type: 'OBJECT_LOCALIZATION', maxResults: 15 },
-            { type: 'WEB_DETECTION', maxResults: 15 },
-            { type: 'TEXT_DETECTION', maxResults: 10 }, // Ajoute détection de texte (peut contenir des marques)
-            { type: 'LOGO_DETECTION', maxResults: 5 }   // Ajoute détection de logos
+            { type: 'LABEL_DETECTION', maxResults: 30 }, // Augmenté pour plus de labels
+            { type: 'IMAGE_PROPERTIES', maxResults: 15 }, // Plus de détails sur les couleurs
+            { type: 'OBJECT_LOCALIZATION', maxResults: 20 }, // Plus d'objets détectés
+            { type: 'WEB_DETECTION', maxResults: 20 }, // Plus de détection web
+            { type: 'TEXT_DETECTION', maxResults: 15 }, // Plus de texte détecté
+            { type: 'LOGO_DETECTION', maxResults: 10 }  // Plus de logos détectés
           ]
         }
       ]
@@ -119,7 +119,7 @@ async function analyzeImage(imagePath) {
     } else {
       // Fallback sur les couleurs globales de l'image
       const globalColors = (imagePropertiesAnnotation?.dominantColors?.colors || [])
-        .slice(0, 8)
+        .slice(0, 12) // Augmenté pour plus de diversité de couleurs
         .map(color => {
           const { red, green, blue } = color.color;
           return {
@@ -152,7 +152,7 @@ async function analyzeImage(imagePath) {
     
     // Extraire les images similaires du web
     const similarImages = (webDetection?.visuallySimilarImages || [])
-      .slice(0, 5)
+      .slice(0, 8) // Augmenté pour plus d'images similaires
       .map(image => ({
         url: image.url
       }));
@@ -261,38 +261,74 @@ function buildSearchQuery(analysisResults) {
       const mainObjectName = analysisResults.mainObject.name.toLowerCase();
       mainItemType = mainObjectName;
       
-      if (mainObjectName.includes('shoe') || mainObjectName.includes('boot')) {
+      if (mainObjectName.includes('shoe') || mainObjectName.includes('boot') || 
+          mainObjectName.includes('footwear') || mainObjectName.includes('sneaker')) {
         mainItemType = 'chaussure';
-      } else if (mainObjectName.includes('bag') || mainObjectName.includes('handbag')) {
+      } else if (mainObjectName.includes('bag') || mainObjectName.includes('handbag') || 
+                 mainObjectName.includes('purse')) {
         mainItemType = 'sac';
       } else if (mainObjectName.includes('jacket') || mainObjectName.includes('coat')) {
         mainItemType = 'veste';
       } else if (mainObjectName.includes('dress')) {
         mainItemType = 'robe';
-      } else if (mainObjectName.includes('pants') || mainObjectName.includes('trousers')) {
+      } else if (mainObjectName.includes('pants') || mainObjectName.includes('trousers') || 
+                 mainObjectName.includes('jeans')) {
         mainItemType = 'pantalon';
       }
     } 
     // Sinon, utiliser les termes extraits
-    else if (extractedTerms.clothing.length > 0) {
-      const mainItem = extractedTerms.clothing[0].toLowerCase();
+    else if (extractedTerms.clothing.length > 0 || extractedTerms.shoes.length > 0 || 
+             extractedTerms.bags.length > 0) {
       
-      if (mainItem.includes('dress') || mainItem.includes('robe')) {
-        mainItemType = 'robe';
-      } else if (mainItem.includes('bag') || mainItem.includes('sac') || 
-                 mainItem.includes('sacoche') || mainItem.includes('purse') || 
-                 mainItem.includes('handbag')) {
-        mainItemType = 'sac';
-      } else if (mainItem.includes('shoe') || mainItem.includes('chaussure') || 
-                 mainItem.includes('sneaker') || mainItem.includes('boot') ||
-                 mainItem.includes('bottine')) {
+      // Vérifier d'abord les chaussures car c'est notre priorité
+      if (extractedTerms.shoes.length > 0) {
+        const shoeItem = extractedTerms.shoes[0].term.toLowerCase();
         mainItemType = 'chaussure';
+        
+        // Affiner le type
+        if (shoeItem.includes('boot') || shoeItem.includes('bottine')) {
+          mainItemType = 'bottine';
+        } else if (shoeItem.includes('sneaker') || shoeItem.includes('basket')) {
+          mainItemType = 'sneaker';
+        }
+      }
+      // Ensuite vérifier les sacs
+      else if (extractedTerms.bags.length > 0) {
+        const bagItem = extractedTerms.bags[0].term.toLowerCase();
+        mainItemType = 'sac';
+      }
+      // Enfin vérifier les vêtements généraux
+      else if (extractedTerms.clothing.length > 0) {
+        const mainItem = extractedTerms.clothing[0].term.toLowerCase();
+        
+        if (mainItem.includes('dress') || mainItem.includes('robe')) {
+          mainItemType = 'robe';
+        } else if (mainItem.includes('jacket') || mainItem.includes('coat') ||
+                  mainItem.includes('veste') || mainItem.includes('manteau')) {
+          mainItemType = 'veste';
+        } else if (mainItem.includes('pants') || mainItem.includes('trousers') ||
+                  mainItem.includes('pantalon') || mainItem.includes('jeans')) {
+          mainItemType = 'pantalon';
+        } else if (mainItem.includes('shirt') || mainItem.includes('chemise') ||
+                  mainItem.includes('blouse')) {
+          mainItemType = 'chemise';
+        } else if (mainItem.includes('sweater') || mainItem.includes('pull') ||
+                  mainItem.includes('hoodie') || mainItem.includes('sweatshirt')) {
+          mainItemType = 'pull';
+        }
       }
     }
     
     // Extraire la couleur principale
     if (analysisResults.colors && analysisResults.colors.length > 0) {
       mainColor = analysisResults.colors[0].nameFr || '';
+      
+      // Si la couleur principale est très faible en pourcentage, vérifier la seconde couleur
+      if (analysisResults.colors[0].pixelFraction < 0.1 && analysisResults.colors.length > 1) {
+        if (analysisResults.colors[1].pixelFraction > analysisResults.colors[0].pixelFraction) {
+          mainColor = analysisResults.colors[1].nameFr || '';
+        }
+      }
     }
     
     // Générer une requête optimisée avec notre service
@@ -560,8 +596,7 @@ app.get('/api/test', (req, res) => {
 
 // Démarrer le serveur
 app.listen(port, () => {
-  console.log(`
-=======================================================
+  console.log(`\n=======================================================
   Fashion Finder API Server v2.0.0
 =======================================================
   Serveur démarré sur le port ${port}
