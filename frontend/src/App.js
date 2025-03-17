@@ -3,6 +3,7 @@ import { FaUpload, FaSearch, FaShoppingBag, FaTag, FaCheck, FaExclamationTriangl
 import { RiShirtLine } from 'react-icons/ri';
 import { BiLoaderAlt } from 'react-icons/bi';
 import ProductCard from './components/ProductCard';
+import GoogleLensView from './components/GoogleLensView';
 import './App.css';
 
 // Résultats de secours pour garantir que l'application fonctionne même sans API
@@ -96,6 +97,8 @@ function App() {
   const [useFallback, setUseFallback] = useState(false);
   const [showLogs, setShowLogs] = useState(true);
   const [viewMode, setViewMode] = useState('lens'); // 'grid' ou 'lens' - Par défaut en mode Lens
+  const [savedResults, setSavedResults] = useState([]);
+  const [showSavedResults, setShowSavedResults] = useState(false);
 
   // Fonction pour ajouter des logs
   const addLog = (message, type = 'info') => {
@@ -124,6 +127,16 @@ function App() {
   useEffect(() => {
     addLog('Application démarrée');
     checkApiStatus();
+    
+    // Récupérer les résultats sauvegardés du localStorage
+    const saved = localStorage.getItem('savedResults');
+    if (saved) {
+      try {
+        setSavedResults(JSON.parse(saved));
+      } catch (e) {
+        console.error('Erreur lors de la récupération des résultats sauvegardés:', e);
+      }
+    }
     
     // Conseils pour l'utilisateur
     const allTips = [
@@ -192,6 +205,9 @@ function App() {
       setResults(null);
       setError('');
       setDetailedError(null);
+      
+      // Masquer les résultats sauvegardés
+      setShowSavedResults(false);
     }
   };
 
@@ -209,6 +225,9 @@ function App() {
       setResults(null);
       setError('');
       setDetailedError(null);
+      
+      // Masquer les résultats sauvegardés
+      setShowSavedResults(false);
     }
   };
 
@@ -245,6 +264,9 @@ function App() {
         setResults(fallbackResults);
         setLoading(false);
         addLog('Analyse terminée avec succès', 'success');
+        
+        // Masquer les résultats sauvegardés
+        setShowSavedResults(false);
       }, 4000);
       return;
     }
@@ -355,6 +377,9 @@ function App() {
         addLog('Analyse complétée avec succès', 'success');
         setResults(data);
       }
+      
+      // Masquer les résultats sauvegardés
+      setShowSavedResults(false);
     } catch (error) {
       console.error('Erreur lors de l\'analyse:', error);
       addLog(`Erreur critique: ${error.message}`, 'error');
@@ -373,6 +398,9 @@ function App() {
       // En cas d'erreur frontale, utiliser les résultats de secours
       addLog('Utilisation des résultats de secours après erreur', 'warning');
       setResults(fallbackResults);
+      
+      // Masquer les résultats sauvegardés
+      setShowSavedResults(false);
     } finally {
       setLoading(false);
       addLog('Processus d\'analyse terminé', 'info');
@@ -394,6 +422,49 @@ function App() {
     setViewMode(viewMode === 'grid' ? 'lens' : 'grid');
     addLog(`Mode d'affichage changé pour: ${viewMode === 'grid' ? 'style Google Lens' : 'grille'}`, 'info');
   };
+  
+  // Fonction pour sauvegarder les résultats actuels
+  const saveCurrentResults = () => {
+    if (!results) return;
+    
+    // Créer un objet de résultat avec un timestamp
+    const resultToSave = {
+      id: Date.now(),
+      timestamp: new Date().toISOString(),
+      imageUrl: previewUrl,
+      results: results
+    };
+    
+    // Ajouter aux résultats sauvegardés
+    const newSavedResults = [resultToSave, ...savedResults];
+    
+    // Limiter à 10 résultats sauvegardés
+    if (newSavedResults.length > 10) {
+      newSavedResults.pop();
+    }
+    
+    // Mettre à jour l'état et sauvegarder dans localStorage
+    setSavedResults(newSavedResults);
+    localStorage.setItem('savedResults', JSON.stringify(newSavedResults));
+    
+    addLog('Résultats sauvegardés avec succès', 'success');
+  };
+  
+  // Fonction pour charger des résultats sauvegardés
+  const loadSavedResult = (savedResult) => {
+    setResults(savedResult.results);
+    setPreviewUrl(savedResult.imageUrl);
+    setShowSavedResults(false);
+    addLog('Résultats sauvegardés chargés avec succès', 'success');
+  };
+  
+  // Fonction pour supprimer un résultat sauvegardé
+  const deleteSavedResult = (id) => {
+    const newSavedResults = savedResults.filter(result => result.id !== id);
+    setSavedResults(newSavedResults);
+    localStorage.setItem('savedResults', JSON.stringify(newSavedResults));
+    addLog('Résultat sauvegardé supprimé', 'info');
+  };
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -404,6 +475,19 @@ function App() {
             <h1 className="text-2xl font-bold">Fashion Finder</h1>
           </div>
           <div className="flex space-x-2">
+            <button 
+              onClick={() => setShowSavedResults(!showSavedResults)} 
+              className="px-4 py-2 rounded-lg font-medium bg-blue-700 text-white hover:bg-blue-800"
+              title="Afficher/masquer les résultats sauvegardés"
+            >
+              <FaRegHeart className="inline mr-1" /> 
+              {savedResults.length > 0 && (
+                <span className="bg-red-500 text-white rounded-full px-1.5 py-0.5 text-xs mr-1">
+                  {savedResults.length}
+                </span>
+              )}
+              Sauvegardés
+            </button>
             <button 
               onClick={toggleViewMode} 
               className="px-4 py-2 rounded-lg font-medium bg-blue-700 text-white hover:bg-blue-800"
@@ -460,6 +544,59 @@ function App() {
             ))}
           </ul>
         </div>
+
+        {/* Affichage des résultats sauvegardés */}
+        {showSavedResults && savedResults.length > 0 && (
+          <div className="mb-6 bg-white rounded-lg shadow">
+            <div className="p-4 bg-gray-50 border-b">
+              <h2 className="text-lg font-semibold text-gray-700 flex items-center">
+                <FaRegHeart className="mr-2" />
+                Résultats sauvegardés ({savedResults.length})
+              </h2>
+            </div>
+            <div className="p-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {savedResults.map((saved) => (
+                  <div 
+                    key={saved.id} 
+                    className="border rounded-lg overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
+                    onClick={() => loadSavedResult(saved)}
+                  >
+                    <div className="h-36 overflow-hidden bg-gray-100">
+                      <img 
+                        src={saved.imageUrl} 
+                        alt="Résultat sauvegardé" 
+                        className="w-full h-full object-contain"
+                      />
+                    </div>
+                    <div className="p-3">
+                      <p className="text-xs text-gray-500">
+                        {new Date(saved.timestamp).toLocaleString()}
+                      </p>
+                      <p className="text-sm text-gray-700 truncate mt-1">
+                        {saved.results.searchQuery}
+                      </p>
+                      <div className="flex justify-between items-center mt-2">
+                        <span className="text-xs text-blue-600">
+                          {saved.results.similarProducts.length} produits
+                        </span>
+                        <button 
+                          className="text-red-500 hover:text-red-600"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteSavedResult(saved.id);
+                          }}
+                        >
+                          <FaBug size={12} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Statut des APIs */}
         <div className="mb-6 bg-white rounded-lg shadow overflow-hidden">
@@ -597,7 +734,7 @@ function App() {
                 </button>
               </div>
             </div>
-            <div className="p-4 bg-gray-900 text-white font-mono text-sm max-h-40 overflow-y-auto">
+            <div className="p-4 bg-gray-900 text-white font-mono text-sm max-h-40 overflow-y-auto logs-panel">
               {logs.map((log) => (
                 <div key={log.id} className="mb-1">
                   <span className="text-gray-500">[{log.timestamp}]</span>{' '}
@@ -643,146 +780,93 @@ function App() {
           </div>
         )}
 
-        {/* Résultats d'analyse */}
-        {results && (
-          <div className="mb-6 bg-white rounded-lg shadow">
-            <div className="p-4 bg-gray-50 border-b">
-              <h2 className="text-lg font-semibold text-gray-700">
-                Analyse de l'image
-              </h2>
-            </div>
-            <div className="p-4 divide-y divide-gray-200">
-              <div className="py-3">
-                <h3 className="font-medium text-gray-800 mb-2">Caractéristiques détectées:</h3>
-                <div className="flex flex-wrap gap-2">
-                  {results.analysis.labels.slice(0, 8).map((label, index) => (
-                    <span 
-                      key={index} 
-                      className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs"
-                      title={`Confiance: ${Math.round(label.score * 100)}%`}
-                    >
-                      {label.description}
-                    </span>
-                  ))}
-                </div>
-              </div>
-              <div className="py-3">
-                <h3 className="font-medium text-gray-800 mb-2">Couleurs dominantes:</h3>
-                <div className="flex gap-2">
-                  {results.analysis.colors.map((color, index) => (
-                    <div key={index} className="flex flex-col items-center">
-                      <div 
-                        className="w-10 h-10 rounded-full border border-gray-300" 
-                        style={{ backgroundColor: color.rgb }}
-                        title={`${color.rgb} - ${Math.round(color.score * 100)}%`}
-                      ></div>
-                      <span className="text-xs text-gray-500 mt-1">
-                        {Math.round(color.pixelFraction * 100)}%
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <div className="py-3">
-                <h3 className="font-medium text-gray-800 mb-2">Requête de recherche:</h3>
-                <div className="bg-gray-100 p-2 rounded text-sm font-mono">
-                  {results.searchQuery}
-                </div>
-              </div>
-            </div>
-          </div>
+        {/* Résultats d'analyse en mode Google Lens */}
+        {results && viewMode === 'lens' && (
+          <GoogleLensView 
+            previewUrl={previewUrl} 
+            results={results} 
+            onSaveResults={saveCurrentResults} 
+          />
         )}
 
-        {/* Produits similaires - Mode Grille (traditionnel) */}
-        {results && results.similarProducts && viewMode === 'grid' && (
-          <div className="bg-white rounded-lg shadow">
-            <div className="p-4 bg-gray-50 border-b">
-              <h2 className="text-lg font-semibold text-gray-700 flex items-center">
-                <FaShoppingBag className="mr-2" />
-                Produits similaires ({results.similarProducts.length})
-              </h2>
-            </div>
-            <div className="p-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {results.similarProducts.map((product, index) => (
-                  <ProductCard 
-                    key={index} 
-                    product={product} 
-                    viewMode="grid" 
-                  />
-                ))}
+        {/* Résultats d'analyse en mode grille */}
+        {results && viewMode === 'grid' && (
+          <>
+            {/* Détails de l'analyse */}
+            <div className="mb-6 bg-white rounded-lg shadow">
+              <div className="p-4 bg-gray-50 border-b">
+                <h2 className="text-lg font-semibold text-gray-700">
+                  Analyse de l'image
+                </h2>
               </div>
-            </div>
-          </div>
-        )}
-
-        {/* Produits similaires - Mode Google Lens */}
-        {results && results.similarProducts && viewMode === 'lens' && (
-          <div className="bg-white rounded-lg shadow mb-6">
-            <div className="p-4 bg-gray-50 border-b">
-              <h2 className="text-lg font-semibold text-gray-700 flex items-center">
-                <FaShoppingBag className="mr-2" />
-                Produits similaires ({results.similarProducts.length})
-              </h2>
-            </div>
-            
-            <div className="p-4 md:flex">
-              {/* Image originale à gauche */}
-              <div className="md:w-1/3 pr-4 mb-4 md:mb-0">
-                <div className="bg-gray-100 rounded-lg overflow-hidden h-72">
-                  <img 
-                    src={previewUrl} 
-                    alt="Image analysée"
-                    className="w-full h-full object-contain"
-                  />
-                </div>
-                <div className="mt-4 bg-gray-50 p-3 rounded-lg">
-                  <h3 className="text-sm font-medium text-gray-700 mb-2">Résultats d'analyse</h3>
-                  <div className="flex flex-wrap gap-1 mb-2">
-                    {results.analysis.labels.slice(0,5).map((label, index) => (
-                      <span key={index} className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full text-xs">
+              <div className="p-4 divide-y divide-gray-200">
+                <div className="py-3">
+                  <h3 className="font-medium text-gray-800 mb-2">Caractéristiques détectées:</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {results.analysis.labels.slice(0, 8).map((label, index) => (
+                      <span 
+                        key={index} 
+                        className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs"
+                        title={`Confiance: ${Math.round(label.score * 100)}%`}
+                      >
                         {label.description}
                       </span>
                     ))}
                   </div>
-                  <div className="flex flex-wrap gap-1">
-                    {results.analysis.colors.slice(0,3).map((color, index) => (
-                      <div 
-                        key={index} 
-                        className="w-6 h-6 rounded-full border border-gray-300" 
-                        style={{ backgroundColor: color.rgb }}
-                        title={`${color.rgb}`}
-                      ></div>
+                </div>
+                <div className="py-3">
+                  <h3 className="font-medium text-gray-800 mb-2">Couleurs dominantes:</h3>
+                  <div className="flex gap-2">
+                    {results.analysis.colors.map((color, index) => (
+                      <div key={index} className="flex flex-col items-center">
+                        <div 
+                          className="w-10 h-10 rounded-full border border-gray-300" 
+                          style={{ backgroundColor: color.rgb }}
+                          title={`${color.nameFr} - ${Math.round(color.score * 100)}%`}
+                        ></div>
+                        <span className="text-xs text-gray-500 mt-1">
+                          {Math.round(color.pixelFraction * 100)}%
+                        </span>
+                      </div>
                     ))}
                   </div>
                 </div>
-              </div>
-              
-              {/* Liste des produits à droite (style Google Lens) */}
-              <div className="md:w-2/3 md:pl-4">
-                <div className="bg-gray-50 p-2 rounded mb-4 text-sm text-gray-600">
-                  {results.similarProducts.length} articles visuellement similaires trouvés
+                <div className="py-3">
+                  <h3 className="font-medium text-gray-800 mb-2">Requête de recherche:</h3>
+                  <div className="bg-gray-100 p-2 rounded text-sm font-mono">
+                    {results.searchQuery}
+                  </div>
                 </div>
-                
-                <div className="space-y-4">
+              </div>
+            </div>
+
+            {/* Produits similaires en mode grille */}
+            <div className="bg-white rounded-lg shadow">
+              <div className="p-4 bg-gray-50 border-b flex justify-between items-center">
+                <h2 className="text-lg font-semibold text-gray-700 flex items-center">
+                  <FaShoppingBag className="mr-2" />
+                  Produits similaires ({results.similarProducts.length})
+                </h2>
+                <button 
+                  className="px-4 py-1 bg-blue-600 text-white rounded text-sm flex items-center hover:bg-blue-700"
+                  onClick={saveCurrentResults}
+                >
+                  <FaRegHeart className="mr-1" /> Sauvegarder
+                </button>
+              </div>
+              <div className="p-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {results.similarProducts.map((product, index) => (
                     <ProductCard 
                       key={index} 
                       product={product} 
-                      viewMode="lens" 
+                      viewMode="grid" 
                     />
                   ))}
                 </div>
-                
-                {/* Actions globales */}
-                <div className="mt-6 flex justify-center">
-                  <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 flex items-center">
-                    <FaStar className="mr-2" /> Enregistrer ces résultats
-                  </button>
-                </div>
               </div>
             </div>
-          </div>
+          </>
         )}
       </main>
 
