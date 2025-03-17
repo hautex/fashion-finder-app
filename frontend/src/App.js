@@ -446,3 +446,302 @@ function App() {
             ))}
           </ul>
         </div>
+
+        {/* Statut des APIs */}
+        <div className="mb-6 bg-white rounded-lg shadow overflow-hidden">
+          <div className="p-4 bg-gray-50 border-b">
+            <h2 className="text-lg font-semibold text-gray-700">
+              État des services
+            </h2>
+          </div>
+          <div className="p-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium">Google Vision API:</span>
+              <div className="flex items-center">
+                {apiStatus.checking ? (
+                  <BiLoaderAlt className="animate-spin text-blue-500 mr-2" />
+                ) : apiStatus.vision?.available ? (
+                  <FaCheck className="text-green-500 mr-2" />
+                ) : (
+                  <FaExclamationTriangle className="text-yellow-500 mr-2" />
+                )}
+                <span className={`text-sm ${apiStatus.vision?.available ? 'text-green-600' : 'text-yellow-600'}`}>
+                  {apiStatus.checking ? 'Vérification...' : apiStatus.vision?.message || 'Non vérifié'}
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">Google Custom Search:</span>
+              <div className="flex items-center">
+                {apiStatus.checking ? (
+                  <BiLoaderAlt className="animate-spin text-blue-500 mr-2" />
+                ) : apiStatus.search?.available ? (
+                  <FaCheck className="text-green-500 mr-2" />
+                ) : (
+                  <FaExclamationTriangle className="text-yellow-500 mr-2" />
+                )}
+                <span className={`text-sm ${apiStatus.search?.available ? 'text-green-600' : 'text-yellow-600'}`}>
+                  {apiStatus.checking ? 'Vérification...' : apiStatus.search?.message || 'Non vérifié'}
+                </span>
+              </div>
+            </div>
+            {!apiStatus.vision?.available && !apiStatus.checking && (
+              <div className="mt-3 text-sm text-gray-500">
+                <p className="flex items-center">
+                  <FaInfoCircle className="mr-1 text-blue-500" />
+                  Les APIs ne sont pas accessibles, mais vous pouvez utiliser le mode démonstration.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Section de téléchargement d'image */}
+        <div className="mb-6 bg-white rounded-lg shadow">
+          <div className="p-4 bg-gray-50 border-b">
+            <h2 className="text-lg font-semibold text-gray-700">
+              Télécharger une image
+            </h2>
+          </div>
+          <div className="p-4">
+            <div 
+              className="border-2 border-dashed border-gray-300 rounded-lg p-6 flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 transition-colors"
+              onClick={handleUploadClick}
+              onDragOver={handleDragOver}
+              onDrop={handleDrop}
+            >
+              <FaUpload className="text-blue-500 text-3xl mb-2" />
+              <p className="mb-2 text-sm text-gray-700">
+                Glissez-déposez une image ici ou cliquez pour sélectionner un fichier
+              </p>
+              <p className="text-xs text-gray-500">
+                JPG, PNG, GIF • Max 10 MB
+              </p>
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                className="hidden" 
+                accept="image/*" 
+                onChange={handleFileChange}
+              />
+            </div>
+
+            {previewUrl && (
+              <div className="mt-4">
+                <p className="text-sm font-medium text-gray-700 mb-2">Aperçu de l'image:</p>
+                <div className="relative w-full h-64 bg-gray-100 rounded-lg overflow-hidden">
+                  <img 
+                    src={previewUrl} 
+                    alt="Aperçu" 
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+                <div className="mt-4 flex justify-center">
+                  <button
+                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 shadow-md flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+                    onClick={handleAnalyze}
+                    disabled={loading}
+                  >
+                    {loading ? (
+                      <>
+                        <BiLoaderAlt className="animate-spin -ml-1 mr-2" />
+                        Analyse en cours...
+                      </>
+                    ) : (
+                      <>
+                        <FaSearch className="-ml-1 mr-2" />
+                        Analyser l'image
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Journal d'activité (logs) */}
+        {logs.length > 0 && showLogs && (
+          <div className="mb-6 bg-white rounded-lg shadow">
+            <div className="p-4 bg-gray-50 border-b flex justify-between items-center">
+              <h2 className="text-lg font-semibold text-gray-700 flex items-center">
+                <FaTerminal className="mr-2" />
+                Journal d'activité
+              </h2>
+              <div className="flex space-x-2">
+                <button 
+                  className="text-gray-500 hover:text-gray-700 text-sm font-medium"
+                  onClick={clearLogs}
+                >
+                  Effacer
+                </button>
+                <button 
+                  className="text-gray-500 hover:text-gray-700 text-sm font-medium"
+                  onClick={() => setShowLogs(false)}
+                >
+                  Masquer
+                </button>
+              </div>
+            </div>
+            <div className="p-4 bg-gray-900 text-white font-mono text-sm max-h-40 overflow-y-auto">
+              {logs.map((log) => (
+                <div key={log.id} className="mb-1">
+                  <span className="text-gray-500">[{log.timestamp}]</span>{' '}
+                  <span className={
+                    log.type === 'success' ? 'text-green-400' :
+                    log.type === 'error' ? 'text-red-400' :
+                    log.type === 'warning' ? 'text-yellow-400' : 'text-blue-400'
+                  }>
+                    {log.type.toUpperCase()}
+                  </span>:{' '}
+                  <span>{log.message}</span>
+                </div>
+              ))}
+              <div ref={logsEndRef} />
+            </div>
+          </div>
+        )}
+
+        {/* Message d'erreur */}
+        {error && (
+          <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-lg">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <FaBug className="h-5 w-5 text-red-500" />
+              </div>
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-red-800">Une erreur est survenue</h3>
+                <div className="mt-2 text-sm text-red-700">
+                  <p>{error}</p>
+                </div>
+                {detailedError && (
+                  <div className="mt-2">
+                    <details className="text-xs text-red-800">
+                      <summary className="cursor-pointer hover:underline">Détails techniques</summary>
+                      <pre className="mt-2 p-2 bg-red-100 overflow-x-auto">
+                        {JSON.stringify(detailedError, null, 2)}
+                      </pre>
+                    </details>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Résultats d'analyse */}
+        {results && (
+          <div className="mb-6 bg-white rounded-lg shadow">
+            <div className="p-4 bg-gray-50 border-b">
+              <h2 className="text-lg font-semibold text-gray-700">
+                Analyse de l'image
+              </h2>
+            </div>
+            <div className="p-4 divide-y divide-gray-200">
+              <div className="py-3">
+                <h3 className="font-medium text-gray-800 mb-2">Caractéristiques détectées:</h3>
+                <div className="flex flex-wrap gap-2">
+                  {results.analysis.labels.map((label, index) => (
+                    <span 
+                      key={index} 
+                      className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs"
+                      title={`Confiance: ${Math.round(label.score * 100)}%`}
+                    >
+                      {label.description}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              <div className="py-3">
+                <h3 className="font-medium text-gray-800 mb-2">Couleurs dominantes:</h3>
+                <div className="flex gap-2">
+                  {results.analysis.colors.map((color, index) => (
+                    <div key={index} className="flex flex-col items-center">
+                      <div 
+                        className="w-10 h-10 rounded-full border border-gray-300" 
+                        style={{ backgroundColor: color.rgb }}
+                        title={`${color.rgb} - ${Math.round(color.score * 100)}%`}
+                      ></div>
+                      <span className="text-xs text-gray-500 mt-1">
+                        {Math.round(color.pixelFraction * 100)}%
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="py-3">
+                <h3 className="font-medium text-gray-800 mb-2">Requête de recherche:</h3>
+                <div className="bg-gray-100 p-2 rounded text-sm font-mono">
+                  {results.searchQuery}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Produits similaires */}
+        {results && results.similarProducts && (
+          <div className="bg-white rounded-lg shadow">
+            <div className="p-4 bg-gray-50 border-b">
+              <h2 className="text-lg font-semibold text-gray-700 flex items-center">
+                <FaShoppingBag className="mr-2" />
+                Produits similaires ({results.similarProducts.length})
+              </h2>
+            </div>
+            <div className="p-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {results.similarProducts.map((product, index) => (
+                  <div key={index} className="border rounded-lg overflow-hidden hover:shadow-md transition-shadow">
+                    <div className="h-48 overflow-hidden">
+                      <img 
+                        src={fixImageUrl(product.image)} 
+                        alt={product.title} 
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          e.target.src = 'https://via.placeholder.com/300x150?text=Image+non+disponible';
+                        }}
+                      />
+                    </div>
+                    <div className="p-4">
+                      <h3 className="font-medium text-gray-800 mb-1 line-clamp-2">
+                        {product.title}
+                      </h3>
+                      <p className="text-sm text-gray-500 mb-2">
+                        {product.displayLink}
+                      </p>
+                      {product.price && (
+                        <p className="text-green-600 font-bold mb-2">{product.price}</p>
+                      )}
+                      <p className="text-sm text-gray-600 mb-3 line-clamp-2">
+                        {product.snippet}
+                      </p>
+                      <a 
+                        href={product.link} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center text-blue-600 hover:text-blue-800 text-sm font-medium"
+                      >
+                        Voir le produit <FaExternalLinkAlt className="ml-1" size={12} />
+                      </a>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </main>
+
+      <footer className="bg-white border-t py-6 mt-10">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+          <p className="text-center text-gray-500 text-sm">
+            Fashion Finder utilise les APIs Google Vision et Custom Search pour trouver des vêtements similaires à partir d'images.
+          </p>
+        </div>
+      </footer>
+    </div>
+  );
+}
+
+export default App;
