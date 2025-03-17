@@ -6,6 +6,7 @@
 
 const axios = require('axios');
 const directProductSearch = require('./directProductSearch');
+const fashionTerms = require('./fashionTerms');
 
 // Sites de shopping fiables pour chaque catégorie
 const TRUSTED_FASHION_SITES = {
@@ -22,7 +23,9 @@ const TRUSTED_FASHION_SITES = {
     'sarenza.com', 'spartoo.com', 'zalando.fr', 'jdsports.fr',
     'courir.com', 'nike.com', 'adidas.fr', 'puma.com', 'clarks.fr',
     'footlocker.fr', 'timberland.fr', 'geox.com', 'drmartens.com',
-    'scholl-shoes.com', 'bocage.fr', 'andre.fr', 'minelli.fr'
+    'scholl-shoes.com', 'bocage.fr', 'andre.fr', 'minelli.fr',
+    'thebootman.fr', 'andrelepepe.com', 'aigle.com', 'newbalance.fr',
+    'asics.com', 'vans.fr', 'converse.com', 'fila.com', 'reebok.fr'
   ],
   
   // Sites pour les sacs
@@ -33,6 +36,50 @@ const TRUSTED_FASHION_SITES = {
     'lestropeziennes.fr', 'lancaster.fr', 'printemps.com',
     'sezane.com', 'lancel.com'
   ]
+};
+
+// Mappings de requêtes de recherche spécifiques par marque et type
+const SPECIFIC_SEARCH_TERMS = {
+  // Par marque
+  brands: {
+    'dr martens': ['dr martens', 'doc martens', 'docteur martens'],
+    'clarks': ['clarks', 'clarks originals', 'clarks boots'],
+    'timberland': ['timberland', 'timberland boots', 'yellow boots'],
+    'nike': ['nike', 'nike shoes', 'nike baskets'],
+    'adidas': ['adidas', 'adidas originals', 'adidas baskets'],
+    'new balance': ['new balance', 'nb shoes', 'new balance baskets'],
+    'converse': ['converse', 'converse all star', 'chuck taylor'],
+    'vans': ['vans', 'vans old skool', 'vans authentic'],
+    'asics': ['asics', 'asics gel', 'asics baskets'],
+    'puma': ['puma', 'puma baskets', 'puma suede']
+  },
+  
+  // Par type de chaussure
+  shoes: {
+    'chelsea boot': ['chelsea boots', 'bottines chelsea', 'boots elastiquées'],
+    'desert boot': ['desert boots', 'clarks desert boot', 'chukka boots'],
+    'combat boot': ['combat boots', 'bottines à lacets', 'ranger boots'],
+    'sneaker': ['baskets', 'sneakers', 'tennis', 'chaussures sport'],
+    'loafer': ['mocassins', 'loafers', 'flâneurs'],
+    'oxford': ['oxford', 'chaussures richelieu', 'derbies'],
+    'ankle boot': ['bottines', 'ankle boots', 'boots', 'bottines courtes']
+  },
+  
+  // Par matériau
+  materials: {
+    'leather': ['cuir', 'leather', 'cuir véritable', 'full grain leather'],
+    'suede': ['daim', 'suede', 'nubuck', 'velours'],
+    'textile': ['textile', 'tissu', 'canvas', 'toile'],
+    'nylon': ['nylon', 'synthétique', 'mesh']
+  },
+  
+  // Par couleur
+  colors: {
+    'marron': ['marron', 'brun', 'brown', 'camel', 'châtaigne', 'cognac', 'tan'],
+    'noir': ['noir', 'black', 'charbon', 'anthracite'],
+    'beige': ['beige', 'sand', 'stone', 'taupe', 'cappuccino', 'crème'],
+    'bleu': ['bleu', 'blue', 'navy', 'indigo', 'denim', 'marine']
+  }
 };
 
 // Fallback produits par catégorie avec images garanties
@@ -210,6 +257,46 @@ async function searchFashionProducts(query, itemType = 'default', color = '') {
     // Sélectionner les sites pertinents pour la catégorie
     const trustedSites = TRUSTED_FASHION_SITES[category] || TRUSTED_FASHION_SITES.clothing;
     
+    // Améliorer la requête avec des termes spécifiques par catégorie
+    let enhancedQuery = query;
+    
+    // Ajouter des termes spécifiques à la requête si c'est une chaussure
+    if (category === 'shoes') {
+      // Détecter si une marque spécifique est mentionnée
+      let brandDetected = false;
+      for (const [brand, terms] of Object.entries(SPECIFIC_SEARCH_TERMS.brands)) {
+        if (query.toLowerCase().includes(brand.toLowerCase())) {
+          // Ajouter des termes spécifiques à cette marque
+          enhancedQuery = `${query} ${terms.join(' ')}`;
+          brandDetected = true;
+          break;
+        }
+      }
+      
+      // Si aucune marque n'est détectée, ajouter des termes spécifiques au type de chaussure
+      if (!brandDetected) {
+        // Détecter le type de chaussure
+        for (const [type, terms] of Object.entries(SPECIFIC_SEARCH_TERMS.shoes)) {
+          if (query.toLowerCase().includes(type.toLowerCase())) {
+            // Ajouter des termes spécifiques à ce type
+            enhancedQuery = `${query} ${terms.join(' ')}`;
+            break;
+          }
+        }
+      }
+      
+      // Ajouter des termes spécifiques à la couleur si elle est mentionnée
+      if (color) {
+        for (const [colorKey, terms] of Object.entries(SPECIFIC_SEARCH_TERMS.colors)) {
+          if (color.toLowerCase().includes(colorKey.toLowerCase())) {
+            // Ajouter des termes spécifiques à cette couleur
+            enhancedQuery = `${enhancedQuery} ${terms.join(' ')}`;
+            break;
+          }
+        }
+      }
+    }
+    
     // Construire la partie site: de la requête (OU logique entre les sites)
     const sitesQuery = trustedSites.map(site => `site:${site}`).join(' OR ');
     
@@ -217,10 +304,10 @@ async function searchFashionProducts(query, itemType = 'default', color = '') {
     const shoppingTerms = 'acheter prix boutique vente produit';
     
     // Construire la requête finale
-    const enhancedQuery = `(${query}) (${sitesQuery}) ${shoppingTerms}`;
+    const finalQuery = `(${enhancedQuery}) (${sitesQuery}) ${shoppingTerms}`;
     
     // Paramètres de l'API Google Custom Search
-    const apiKey = process.env.GOOGLE_CUSTOM_SEARCH_API_KEY;
+    const apiKey = process.env.GOOGLE_VISION_API_KEY;
     const cx = process.env.GOOGLE_CUSTOM_SEARCH_ENGINE_ID;
     
     if (!apiKey || !cx) {
@@ -231,7 +318,7 @@ async function searchFashionProducts(query, itemType = 'default', color = '') {
     const params = {
       key: apiKey,
       cx: cx,
-      q: enhancedQuery,
+      q: finalQuery,
       num: 15, // Demander plus de résultats pour avoir plus de chances de trouver des liens directs
       lr: 'lang_fr', // Limiter aux résultats en français
       safe: 'active', // Filtre SafeSearch
@@ -303,6 +390,57 @@ async function searchFashionProducts(query, itemType = 'default', color = '') {
       filteredResults = directProductResults;
     } else {
       console.log(`Seulement ${directProductResults.length} liens directs trouvés, on garde une partie des résultats indirects`);
+    }
+    
+    // Si c'est une recherche de chaussures, appliquer un filtrage supplémentaire
+    if (category === 'shoes') {
+      // Favoriser les sites spécialisés dans les chaussures
+      const shoeSpecificSites = [
+        'sarenza.com', 'spartoo.com', 'courir.com', 'jdsports.fr',
+        'footlocker.fr', 'clarks.fr', 'drmartens.com', 'timberland.fr'
+      ];
+      
+      // Vérifier si des résultats proviennent de sites spécialisés
+      const shoeSpecificResults = filteredResults.filter(item => 
+        shoeSpecificSites.some(site => item.displayLink.includes(site))
+      );
+      
+      // Si on a suffisamment de résultats de sites spécialisés, les privilégier
+      if (shoeSpecificResults.length >= 3) {
+        console.log(`Utilisation de ${shoeSpecificResults.length} résultats de sites spécialisés dans les chaussures`);
+        filteredResults = shoeSpecificResults.concat(
+          filteredResults
+            .filter(item => !shoeSpecificSites.some(site => item.displayLink.includes(site)))
+            .slice(0, 5 - shoeSpecificResults.length)
+        );
+      }
+      
+      // Appliquer un filtrage par nom si on recherche un modèle spécifique
+      if (query.toLowerCase().includes('chelsea') || 
+          query.toLowerCase().includes('desert boot') ||
+          query.toLowerCase().includes('dr martens') ||
+          query.toLowerCase().includes('timberland')) {
+        
+        // Extraire les mots-clés spécifiques de la requête
+        const keyTerms = query.toLowerCase()
+          .split(' ')
+          .filter(term => term.length > 3) // Ignorer les mots trop courts
+          .map(term => term.trim());
+        
+        // Filtrer les résultats qui correspondent aux mots-clés spécifiques
+        const keywordFilteredResults = filteredResults.filter(item => 
+          keyTerms.some(term => 
+            item.title.toLowerCase().includes(term) || 
+            item.snippet.toLowerCase().includes(term)
+          )
+        );
+        
+        // Si on a suffisamment de résultats filtrés par mots-clés, les privilégier
+        if (keywordFilteredResults.length >= 3) {
+          console.log(`Utilisation de ${keywordFilteredResults.length} résultats filtrés par mots-clés spécifiques`);
+          filteredResults = keywordFilteredResults;
+        }
+      }
     }
     
     // Vérification et enrichissement des liens en parallèle (avec limitation à 10 pour éviter de surcharger)
